@@ -88,7 +88,7 @@ require('lazy').setup({
 
       -- Useful status updates for LSP
       -- NOTE: `opts = {}` is the same as calling `require('fidget').setup({})`
-      { 'j-hui/fidget.nvim', opts = {} },
+      { 'j-hui/fidget.nvim',       opts = {} },
 
       -- Additional lua configuration, makes nvim stuff amazing!
       'folke/neodev.nvim',
@@ -124,7 +124,7 @@ require('lazy').setup({
   },
 
   -- Useful plugin to show you pending keybinds.
-  { 'folke/which-key.nvim', opts = {} },
+  { 'folke/which-key.nvim',  opts = {} },
   {
     -- Adds git related signs to the gutter, as well as utilities for managing changes
     'lewis6991/gitsigns.nvim',
@@ -214,6 +214,10 @@ require('lazy').setup({
     end,
   },
 
+  { 'p00f/alabaster.nvim' },
+
+  { 'kepano/flexoki-neovim', name = 'flexoki' },
+
   {
     -- Set lualine as statusline
     'nvim-lualine/lualine.nvim',
@@ -228,14 +232,14 @@ require('lazy').setup({
     },
   },
 
-  {
-    -- Add indentation guides even on blank lines
-    'lukas-reineke/indent-blankline.nvim',
-    -- Enable `lukas-reineke/indent-blankline.nvim`
-    -- See `:help ibl`
-    main = 'ibl',
-    opts = {},
-  },
+  -- {
+  -- Add indentation guides even on blank lines
+  -- 'lukas-reineke/indent-blankline.nvim',
+  -- Enable `lukas-reineke/indent-blankline.nvim`
+  -- See `:help ibl`
+  --   main = 'ibl',
+  --   opts = {},
+  -- },
 
   -- "gc" to comment visual regions/lines
   { 'numToStr/Comment.nvim', opts = {} },
@@ -273,7 +277,7 @@ require('lazy').setup({
   -- NOTE: Next Step on Your Neovim Journey: Add/Configure additional "plugins" for kickstart
   --       These are some example plugins that I've included in the kickstart repository.
   --       Uncomment any of the lines below to enable them.
-  -- require 'kickstart.plugins.autoformat',
+  require 'kickstart.plugins.autoformat',
   -- require 'kickstart.plugins.debug',
 
   -- NOTE: The import below can automatically add your own plugins, configuration, etc from `lua/custom/plugins/*.lua`
@@ -283,6 +287,29 @@ require('lazy').setup({
   --
   --    For additional information see: https://github.com/folke/lazy.nvim#-structuring-your-plugins
   -- { import = 'custom.plugins' },
+  --
+  {
+    "nvim-neo-tree/neo-tree.nvim",
+    branch = "v3.x",
+    dependencies = {
+      "nvim-lua/plenary.nvim",
+      "nvim-tree/nvim-web-devicons", -- not strictly required, but recommended
+      "MunifTanjim/nui.nvim",
+      -- "3rd/image.nvim", -- Optional image support in preview window: See `# Preview Mode` for more information
+    }
+  },
+  { "catppuccin/nvim",       name = "catppuccin" },
+  {
+    "folke/tokyonight.nvim",
+    lazy = false,
+    opts = {},
+  },
+  { "rose-pine/neovim",                name = "rose-pine" },
+  { "EdenEast/nightfox.nvim" },
+  { "nyoom-engineering/oxocarbon.nvim" },
+  { "miikanissi/modus-themes.nvim" },
+  { "cocopon/iceberg.vim" },
+  { "ku1ik/vim-monokai" }
 }, {})
 
 -- [[ Setting options ]]
@@ -449,7 +476,7 @@ vim.defer_fn(function()
     ignore_install = {},
     -- You can specify additional Treesitter modules here: -- For example: -- playground = {--enable = true,-- },
     modules = {},
-    highlight = { enable = true },
+    highlight = { enable = true, additional_vim_regex_highlighting = false, },
     indent = { enable = true },
     incremental_selection = {
       enable = true,
@@ -682,3 +709,10 @@ cmp.setup {
 
 -- The line beneath this is called `modeline`. See `:help modeline`
 -- vim: ts=2 sts=2 sw=2 et
+
+vim.keymap.set("n", "<leader>[", vim.cmd.tabprev)
+vim.keymap.set("n", "<leader>]", vim.cmd.tabnext)
+vim.opt.scrolloff = 5
+vim.opt.relativenumber = true
+vim.cmd [[colorscheme modus]]
+vim.wo.fillchars = 'eob: '

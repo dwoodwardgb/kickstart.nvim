@@ -3,6 +3,14 @@
 -- Use your language server to automatically format your code on save.
 -- Adds additional commands as well to manage the behavior
 
+function TsFormat()
+  local save_cursor = vim.fn.getpos('.')
+  local save_view = vim.fn.winsaveview()
+  vim.cmd([[:%!prettierd %]])
+  vim.fn.setpos('.', save_cursor)
+  vim.fn.winrestview(save_view)
+end
+
 return {
   'neovim/nvim-lspconfig',
   config = function()
@@ -47,6 +55,7 @@ return {
         -- Tsserver usually works poorly. Sorry you work with bad languages
         -- You can remove this line if you know what you're doing :)
         if client.name == 'tsserver' then
+          vim.api.nvim_command("autocmd BufWritePre <buffer> lua TsFormat()")
           return
         end
 
