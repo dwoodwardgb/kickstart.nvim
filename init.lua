@@ -1,16 +1,28 @@
 vim.g.loaded_netrw = 1
 vim.g.loaded_netrwPlugin = 1
 
-vim.pack.add {
-  { src = 'https://github.com/neovim/nvim-lspconfig' },
-  {
-    src = 'https://github.com/nvim-treesitter/nvim-treesitter',
-    version = 'master', -- legacy version
-  },
-  { src = 'https://github.com/NMAC427/guess-indent.nvim' },
-  { src = 'https://github.com/echasnovski/mini.pick' },
-  { src = 'https://github.com/nvim-tree/nvim-tree.lua' },
-}
+require('packer').startup(function(use)
+  use('wbthomason/packer.nvim')
+  use('neovim/nvim-lspconfig')
+use('nvim-treesitter/nvim-treesitter')
+use('NMAC427/guess-indent.nvim')
+use('echasnovski/mini.pick')
+use('nvim-tree/nvim-tree.lua')
+end)
+
+-- vim.cmd [[PackerCompile]]
+-- vim.cmd [[PackerInstall]]
+
+-- vim.pack.add {
+--   { src = 'https://github.com/neovim/nvim-lspconfig' },
+--   {
+--     src = 'https://github.com/nvim-treesitter/nvim-treesitter',
+--     version = 'master', -- legacy version
+--   },
+--   { src = 'https://github.com/NMAC427/guess-indent.nvim' },
+--   { src = 'https://github.com/echasnovski/mini.pick' },
+--   { src = 'https://github.com/nvim-tree/nvim-tree.lua' },
+-- }
 
 vim.lsp.enable('gopls')
 vim.lsp.enable('lua_ls')
