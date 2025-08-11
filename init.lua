@@ -131,52 +131,52 @@ require("packer").startup(function(use)
 				view = {
 					side = "right", -- Sets the NvimTree to open on the right side
 				},
-        filters = {
-          dotfiles = false,
-        },
-        renderer = {
-          indent_markers = {
-				    enable = true,
+				filters = {
+					dotfiles = false,
+				},
+				renderer = {
+					indent_markers = {
+						enable = true,
 					},
 					icons = {
-            web_devicons = {
-              file = {
-                enable = false,
-                color = true,
-              },
-              folder = {
-                enable = false,
-                color = true,
-              },
-            },
-          glyphs = {
-            default = "",
-            symlink = "",
-            bookmark = "󰆤",
-            modified = "●",
-            hidden = "󰜌",
-            folder = {
-              arrow_closed = "",
-              arrow_open = "",
-              default = "",
-              open = "",
-              empty = "",
-              empty_open = "",
-              symlink = "",
-              symlink_open = "",
-            },
-            git = {
-              unstaged = "✗",
-              staged = "✓",
-              unmerged = "",
-              renamed = "➜",
-              untracked = "★",
-              deleted = "",
-              ignored = "◌",
-            },
-          },
+						web_devicons = {
+							file = {
+								enable = false,
+								color = true,
+							},
+							folder = {
+								enable = false,
+								color = true,
+							},
+						},
+						glyphs = {
+							default = "",
+							symlink = "",
+							bookmark = "󰆤",
+							modified = "●",
+							hidden = "󰜌",
+							folder = {
+								arrow_closed = ">",
+								arrow_open = "V",
+								default = "",
+								open = "V",
+								empty = "",
+								empty_open = "V",
+								symlink = "",
+								symlink_open = "V",
+							},
+							git = {
+								unstaged = "✗",
+								staged = "✓",
+								unmerged = "!",
+								renamed = "➜",
+								untracked = "★",
+								deleted = "",
+								ignored = "◌",
+							},
+						},
 					},
-				}
+				},
 			})
 		end,
 	})
@@ -207,15 +207,15 @@ require("packer").startup(function(use)
 end)
 
 -- TODO: figure out why this works but the above doesn't
-require("conform").setup({
-	formatters_by_ft = {
-		lua = { "stylua" },
-		-- Conform will run the first available formatter
-		javascript = { "prettier", stop_after_first = true },
-		typescript = { "prettier", stop_after_first = true },
-		nim = { "nimpretty" },
-	},
-})
+-- require("conform").setup({
+-- 	formatters_by_ft = {
+-- 		lua = { "stylua" },
+-- 		-- Conform will run the first available formatter
+-- 		javascript = { "prettier", stop_after_first = true },
+-- 		typescript = { "prettier", stop_after_first = true },
+-- 		nim = { "nimpretty" },
+-- 	},
+-- })
 
 -- FORMAT ON SAVE
 vim.api.nvim_create_autocmd("FileType", {
