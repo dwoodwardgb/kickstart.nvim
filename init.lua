@@ -94,6 +94,7 @@ require('packer').startup(function(use)
   use({
     'NMAC427/guess-indent.nvim',
     config = function ()
+      -- TODO: set language specific fallbacks/defaults
       require('guess-indent').setup()
     end
   })
@@ -115,23 +116,43 @@ require('packer').startup(function(use)
   })
   use({
     "stevearc/conform.nvim",
-    config = function()
-      require("conform").setup()
+    config = function ()
+      -- TODO: why didn't setting the table here work
     end,
   })
 end)
 
--- vim.pack.add {
---   { src = 'https://github.com/neovim/nvim-lspconfig' },
---   {
---     src = 'https://github.com/nvim-treesitter/nvim-treesitter',
---     version = 'master', -- legacy version
---   },
---   { src = 'https://github.com/NMAC427/guess-indent.nvim' },
---   { src = 'https://github.com/echasnovski/mini.pick' },
---   { src = 'https://github.com/nvim-tree/nvim-tree.lua' },
--- }
+-- TODO: figure out why this works but this doesnt
+require("conform").setup({
+  formatters_by_ft = {
+    lua = { "stylua" },
+    -- Conform will run the first available formatter
+    javascript = { "prettier", stop_after_first = true },
+    typescript = { "prettier", stop_after_first = true },
+    -- javascript = { "prettierd", "prettier", stop_after_first = true },
+    nim = { "nimpretty" }
+  },
+})
 
+
+vim.api.nvim_create_autocmd('FileType', {
+  pattern = { "*" },
+  callback = function(args)
+    local ft = vim.bo[args.buf].filetype
+    if ft == "nim" or ft == "javascript" or ft == "typescript" then
+      vim.api.nvim_create_autocmd("BufWritePre", {
+        pattern = "*",
+        callback = function(args)
+          require("conform").format({
+            bufnr = args.buf,
+            lsp_format = "fallback",
+            timeout_ms = 500,
+          })
+        end,
+      })
+    end
+  end 
+})
 
 vim.keymap.set("n", "<leader>w", ":bd #<CR>")
 vim.keymap.set('n', '<leader>p', ":Pick files<CR>")
