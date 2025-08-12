@@ -1,3 +1,20 @@
+-- Bootstrap lazy.nvim
+local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
+if not (vim.uv or vim.loop).fs_stat(lazypath) then
+	local lazyrepo = "https://github.com/folke/lazy.nvim.git"
+	local out = vim.fn.system({ "git", "clone", "--filter=blob:none", "--branch=stable", lazyrepo, lazypath })
+	if vim.v.shell_error ~= 0 then
+		vim.api.nvim_echo({
+			{ "Failed to clone lazy.nvim:\n", "ErrorMsg" },
+			{ out, "WarningMsg" },
+			{ "\nPress any key to exit..." },
+		}, true, {})
+		vim.fn.getchar()
+		os.exit(1)
+	end
+end
+vim.opt.rtp:prepend(lazypath)
+
 vim.g.mapleader = " "
 vim.g.maplocalleader = " "
 vim.keymap.set("n", "<leader>[", vim.cmd.tabprev)
@@ -14,42 +31,25 @@ vim.opt.linebreak = true
 vim.opt.breakat = "^I!@*+;,./?"
 vim.opt.wrap = false
 vim.opt.tabstop = 2
-
 -- for neotree
 vim.g.loaded_netrw = 1
 vim.g.loaded_netrwPlugin = 1
 
-local ensure_packer = function()
-	local fn = vim.fn
-	local install_path = fn.stdpath("data") .. "/site/pack/packer/start/packer.nvim"
-	if fn.empty(fn.glob(install_path)) > 0 then
-		fn.system({ "git", "clone", "--depth", "1", "https://github.com/wbthomason/packer.nvim", install_path })
-		vim.cmd([[packadd packer.nvim]])
-		return true
-	end
-	return false
-end
-
-local packer_bootstrap = ensure_packer()
-
-require("packer").startup(function(use)
-	use("wbthomason/packer.nvim")
-	if packer_bootstrap then
-		require("packer").sync()
-	end
-	use({
-		"neovim/nvim-lspconfig",
-		config = function()
-			vim.lsp.enable("gopls")
-			vim.lsp.enable("lua_ls")
-			vim.lsp.enable("nim_langserver")
-			vim.lsp.enable("ts_ls")
-		end,
-	})
-	use({
-		"nvim-treesitter/nvim-treesitter",
-		config = function()
-			require("nvim-treesitter.configs").setup({
+-- Setup lazy.nvim
+require("lazy").setup({
+	spec = {
+		{
+			"neovim/nvim-lspconfig",
+			config = function()
+				vim.lsp.enable("gopls")
+				vim.lsp.enable("lua_ls")
+				vim.lsp.enable("nim_langserver")
+				vim.lsp.enable("ts_ls")
+			end,
+		},
+		{
+			"nvim-treesitter/nvim-treesitter",
+			opts = {
 				-- A list of parser names, or "all" (the listed parsers MUST always be installed)
 				ensure_installed = {
 					"c",
@@ -106,116 +106,89 @@ require("packer").startup(function(use)
 					-- Instead of true it can also be a list of languages
 					additional_vim_regex_highlighting = false,
 				},
-			})
-		end,
-	})
-	use({
-		"NMAC427/guess-indent.nvim",
-		config = function()
-			-- TODO: set language specific fallbacks/defaults
-			require("guess-indent").setup()
-		end,
-	})
-	use({
-		"echasnovski/mini.pick",
-		config = function()
-			-- TODO: figure out why wont work in home directory
-			require("mini.pick").setup()
-		end,
-	})
-	use({
-		"nvim-tree/nvim-tree.lua",
-		config = function()
-			-- TODO: turn off nerd font icons
-			require("nvim-tree").setup({
-				view = {
-					side = "right", -- Sets the NvimTree to open on the right side
-				},
-				filters = {
-					dotfiles = false,
-				},
-				renderer = {
-					indent_markers = {
-						enable = true,
+			},
+			{
+				"NMAC427/guess-indent.nvim",
+				opts = {},
+			},
+			{
+				"echasnovski/mini.pick",
+				opts = {},
+			},
+			{
+				"nvim-tree/nvim-tree.lua",
+				opts = {
+					view = {
+						side = "right", -- Sets the NvimTree to open on the right side
 					},
-					icons = {
-						web_devicons = {
-							file = {
-								enable = false,
-								color = true,
-							},
-							folder = {
-								enable = false,
-								color = true,
-							},
+					filters = {
+						dotfiles = false,
+					},
+					renderer = {
+						indent_markers = {
+							enable = true,
 						},
-						glyphs = {
-							default = "",
-							symlink = "",
-							bookmark = "󰆤",
-							modified = "●",
-							hidden = "󰜌",
-							folder = {
-								arrow_closed = ">",
-								arrow_open = "V",
+						icons = {
+							web_devicons = {
+								file = {
+									enable = false,
+									color = true,
+								},
+								folder = {
+									enable = false,
+									color = true,
+								},
+							},
+							glyphs = {
 								default = "",
-								open = "V",
-								empty = "",
-								empty_open = "V",
 								symlink = "",
-								symlink_open = "V",
-							},
-							git = {
-								unstaged = "✗",
-								staged = "✓",
-								unmerged = "!",
-								renamed = "➜",
-								untracked = "★",
-								deleted = "",
-								ignored = "◌",
+								bookmark = "󰆤",
+								modified = "●",
+								hidden = "󰜌",
+								folder = {
+									arrow_closed = ">",
+									arrow_open = "V",
+									default = "",
+									open = "V",
+									empty = "",
+									empty_open = "V",
+									symlink = "",
+									symlink_open = "V",
+								},
+								git = {
+									unstaged = "✗",
+									staged = "✓",
+									unmerged = "!",
+									renamed = "➜",
+									untracked = "★",
+									deleted = "",
+									ignored = "◌",
+								},
 							},
 						},
 					},
 				},
-			})
-		end,
-	})
-	use({
-		"stevearc/conform.nvim",
-		config = function()
-			require("conform").setup({
-				formatters_by_ft = {
-					lua = { "stylua" },
-					-- Conform will run the first available formatter
-					javascript = { "prettier", stop_after_first = true },
-					typescript = { "prettier", stop_after_first = true },
-					nim = { "nimpretty" },
+			},
+			{
+				"stevearc/conform.nvim",
+				opts = {
+					formatters_by_ft = {
+						lua = { "stylua" },
+						-- Conform will run the first available formatter
+						javascript = { "prettier", stop_after_first = true },
+						typescript = { "prettier", stop_after_first = true },
+						nim = { "nimpretty" },
+					},
 				},
-			})
-		end,
-	})
-	-- use({
-	-- 	"echasnovski/mini.icons",
-	-- 	config = function()
-	-- 		-- TODO: figure out why wont work in home directory
-	-- 		require("mini.icons").setup({
-	-- 			style = "ascii",
-	-- 		})
-	-- 		MiniIcons.mock_nvim_web_devicons()
-	-- 	end,
-	-- })
-end)
-
--- TODO: figure out why this works but the above doesn't
--- require("conform").setup({
--- 	formatters_by_ft = {
--- 		lua = { "stylua" },
--- 		-- Conform will run the first available formatter
--- 		javascript = { "prettier", stop_after_first = true },
--- 		typescript = { "prettier", stop_after_first = true },
--- 		nim = { "nimpretty" },
--- 	},
--- })
+			},
+		},
+	},
+	-- Configure any other settings here. See the documentation for more details.
+	-- colorscheme that will be used when installing plugins.
+	-- install = { colorscheme = { "habamax" } },
+	-- automatically check for plugin updates
+	-- checker = { enabled = true },
+})
 
 -- FORMAT ON SAVE
 vim.api.nvim_create_autocmd("FileType", {
