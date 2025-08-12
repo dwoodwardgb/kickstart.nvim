@@ -147,13 +147,13 @@ require("lazy").setup({
 								hidden = "󰜌",
 								folder = {
 									arrow_closed = ">",
-									arrow_open = "V",
+									arrow_open = "v",
 									default = "",
-									open = "V",
+									open = "v",
 									empty = "",
-									empty_open = "V",
+									empty_open = "v",
 									symlink = "",
-									symlink_open = "V",
+									symlink_open = "v",
 								},
 								git = {
 									unstaged = "✗",
