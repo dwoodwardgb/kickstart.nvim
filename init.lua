@@ -17,6 +17,16 @@ vim.opt.rtp:prepend(lazypath)
 
 vim.g.mapleader = " "
 vim.g.maplocalleader = " "
+vim.g.have_nerd_font = false
+vim.schedule(function ()
+  vim.o.clipboard = 'unnamedplus'
+end)
+vim.o.undofile = true
+vim.o.ignorecase = true
+vim.o.smartcase = true
+vim.o.splitright = true
+vim.o.splitbelow = true
+vim.o.inccommand = "split"
 vim.keymap.set("n", "<leader>[", vim.cmd.tabprev)
 vim.keymap.set("n", "<leader>]", vim.cmd.tabnext)
 vim.opt.scrolloff = 5
