@@ -18,8 +18,8 @@ vim.opt.rtp:prepend(lazypath)
 vim.g.mapleader = " "
 vim.g.maplocalleader = " "
 vim.g.have_nerd_font = false
-vim.schedule(function ()
-  vim.o.clipboard = 'unnamedplus'
+vim.schedule(function()
+	vim.o.clipboard = "unnamedplus"
 end)
 vim.o.undofile = true
 vim.o.ignorecase = true
@@ -44,6 +44,9 @@ vim.opt.tabstop = 2
 -- for neotree
 vim.g.loaded_netrw = 1
 vim.g.loaded_netrwPlugin = 1
+vim.o.confirm = true
+vim.keymap.set("n", "<Esc>", "<cmd>nohlsearch<CR>")
+vim.keymap.set("t", "<Esc><Esc>", "<C-\\><C-n>", { desc = "Exit terminal mode" })
 
 -- Setup lazy.nvim
 require("lazy").setup({
@@ -55,6 +58,16 @@ require("lazy").setup({
 				vim.lsp.enable("lua_ls")
 				vim.lsp.enable("nim_langserver")
 				vim.lsp.enable("ts_ls")
+
+				vim.lsp.config("lua_ls", {
+					settings = {
+						Lua = {
+							workspace = {
+								library = vim.api.nvim_get_runtime_file("", true),
+							},
+						},
+					},
+				})
 			end,
 		},
 		{
