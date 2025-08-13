@@ -197,6 +197,7 @@ vim.keymap.set("n", "<leader>p", ":Pick files<CR>")
 vim.keymap.set("n", "<leader>f", ":Pick grep<CR>")
 vim.keymap.set("n", "<leader><tab>", ":Pick buffers<CR>")
 vim.keymap.set("n", "<leader>b", ":NvimTreeToggle<CR>")
+vim.keymap.set("n", "gd", vim.lsp.buf.definition, { noremap = true, silent = true })
 
 vim.diagnostic.config({
 	virtual_text = {
