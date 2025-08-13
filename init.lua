@@ -27,8 +27,6 @@ vim.o.smartcase = true
 vim.o.splitright = true
 vim.o.splitbelow = true
 vim.o.inccommand = "split"
-vim.keymap.set("n", "<leader>[", vim.cmd.tabprev)
-vim.keymap.set("n", "<leader>]", vim.cmd.tabnext)
 vim.opt.scrolloff = 5
 vim.opt.relativenumber = true
 vim.wo.fillchars = "eob: "
@@ -41,33 +39,76 @@ vim.opt.linebreak = true
 vim.opt.breakat = "^I!@*+;,./?"
 vim.opt.wrap = false
 vim.opt.tabstop = 2
+vim.opt.shiftwidth = 2
+vim.opt.softtabstop = 2
+vim.opt.expandtab = true
+vim.o.confirm = true
 -- for neotree
 vim.g.loaded_netrw = 1
 vim.g.loaded_netrwPlugin = 1
-vim.o.confirm = true
-vim.keymap.set("n", "<Esc>", "<cmd>nohlsearch<CR>")
-vim.keymap.set("t", "<Esc><Esc>", "<C-\\><C-n>", { desc = "Exit terminal mode" })
 
 -- Setup lazy.nvim
 require("lazy").setup({
 	spec = {
 		{
+			"NMAC427/guess-indent.nvim",
+			opts = {},
+		},
+		{
 			"neovim/nvim-lspconfig",
 			config = function()
+				vim.lsp.config("lua_ls", {
+					on_init = function(client)
+						if client.workspace_folders then
+							local path = client.workspace_folders[1].name
+							if
+								path ~= vim.fn.stdpath("config")
+								and (vim.uv.fs_stat(path .. "/.luarc.json") or vim.uv.fs_stat(path .. "/.luarc.jsonc"))
+							then
+								return
+							end
+						end
+
+						client.config.settings.Lua = vim.tbl_deep_extend("force", client.config.settings.Lua, {
+							runtime = {
+								-- Tell the language server which version of Lua you're using (most
+								-- likely LuaJIT in the case of Neovim)
+								version = "LuaJIT",
+								-- Tell the language server how to find Lua modules same way as Neovim
+								-- (see `:h lua-module-load`)
+								path = {
+									"lua/?.lua",
+									"lua/?/init.lua",
+								},
+							},
+							-- Make the server aware of Neovim runtime files
+							workspace = {
+								checkThirdParty = false,
+								library = {
+									vim.env.VIMRUNTIME,
+									-- Depending on the usage, you might want to add additional paths
+									-- here.
+									-- '${3rd}/luv/library'
+									-- '${3rd}/busted/library'
+								},
+								-- Or pull in all of 'runtimepath'.
+								-- NOTE: this is a lot slower and will cause issues when working on
+								-- your own configuration.
+								-- See https://github.com/neovim/nvim-lspconfig/issues/3189
+								-- library = {
+								--   vim.api.nvim_get_runtime_file('', true),
+								-- }
+							},
+						})
+					end,
+					settings = {
+						Lua = {},
+					},
+				})
 				vim.lsp.enable("gopls")
 				vim.lsp.enable("lua_ls")
 				vim.lsp.enable("nim_langserver")
 				vim.lsp.enable("ts_ls")
-
-				vim.lsp.config("lua_ls", {
-					settings = {
-						Lua = {
-							workspace = {
-								library = vim.api.nvim_get_runtime_file("", true),
-							},
-						},
-					},
-				})
 			end,
 		},
 		{
@@ -112,10 +153,6 @@ require("lazy").setup({
 					additional_vim_regex_highlighting = false,
 				},
 			},
-		},
-		{
-			"NMAC427/guess-indent.nvim",
-			opts = {},
 		},
 		{
 			"echasnovski/mini.pick",
@@ -187,19 +224,21 @@ require("lazy").setup({
 			},
 		},
 	},
-	-- Configure any other settings here. See the documentation for more details.
-	-- colorscheme that will be used when installing plugins.
-	-- install = { colorscheme = { "habamax" } },
-	-- automatically check for plugin updates
-	-- checker = { enabled = true },
 })
 
 -- FORMAT ON SAVE
+local enabled_fts_for_format_on_save = {
+	nim = true,
+	javascript = true,
+	typescript = true,
+	json = true,
+	lua = true,
+}
 vim.api.nvim_create_autocmd("FileType", {
 	pattern = { "*" },
 	callback = function(args)
 		local ft = vim.bo[args.buf].filetype
-		if ft == "nim" or ft == "javascript" or ft == "typescript" then
+		if enabled_fts_for_format_on_save[ft] then
 			vim.api.nvim_create_autocmd("BufWritePre", {
 				pattern = "*",
 				callback = function(args)
@@ -221,6 +260,10 @@ vim.keymap.set("n", "<leader>f", ":Pick grep<CR>")
 vim.keymap.set("n", "<leader><tab>", ":Pick buffers<CR>")
 vim.keymap.set("n", "<leader>b", ":NvimTreeToggle<CR>")
 vim.keymap.set("n", "gd", vim.lsp.buf.definition, { noremap = true, silent = true })
+vim.keymap.set("n", "<leader>[", vim.cmd.tabprev)
+vim.keymap.set("n", "<leader>]", vim.cmd.tabnext)
+vim.keymap.set("n", "<Esc>", "<cmd>nohlsearch<CR>")
+vim.keymap.set("t", "<Esc><Esc>", "<C-\\><C-n>", { desc = "Exit terminal mode" })
 
 vim.diagnostic.config({
 	virtual_text = {
