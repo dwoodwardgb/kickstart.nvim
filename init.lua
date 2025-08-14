@@ -54,6 +54,7 @@ require("lazy").setup({
 			"NMAC427/guess-indent.nvim",
 			opts = {},
 		},
+		{ "echasnovski/mini.base16", version = "*" },
 		{
 			"neovim/nvim-lspconfig",
 			config = function()
@@ -264,6 +265,35 @@ vim.keymap.set("n", "<leader>[", vim.cmd.tabprev)
 vim.keymap.set("n", "<leader>]", vim.cmd.tabnext)
 vim.keymap.set("n", "<Esc>", "<cmd>nohlsearch<CR>")
 vim.keymap.set("t", "<Esc><Esc>", "<C-\\><C-n>", { desc = "Exit terminal mode" })
+-- Map Ctrl-Space to trigger Omni-completion in Insert mode
+vim.api.nvim_set_keymap("i", "<C-Space>", "<C-x><C-o>", { noremap = true, silent = true })
+
+-- Set completeopt options
+vim.opt.completeopt = { "menuone", "noselect", "noinsert", "preview" }
+
+-- Autocompletion after typing two characters
+-- This creates an autocommand that triggers omni-completion when
+-- two word characters are typed.
+vim.api.nvim_create_autocmd("InsertCharPre", {
+	group = vim.api.nvim_create_augroup("MyAutoComplete", { clear = true }),
+	callback = function()
+		-- Get the current line
+		local line = vim.api.nvim_get_current_line()
+		-- Get the current cursor column (0-indexed)
+		local col = vim.api.nvim_win_get_cursor(0)[2]
+		local char_before_cursor = string.sub(line, col, col)
+
+		-- Check if the character just inserted is a word character
+		if char_before_cursor:match("%w") then
+			-- Check if there are at least 2 characters on the line
+			-- and if the last two characters (ending at the cursor position) are word characters
+			if col >= 2 and string.sub(line, col - 1, col):match("%w%w") then
+				-- Trigger omni-completion
+				vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<C-x><C-o>", true, false, true), "n", false)
+			end
+		end
+	end,
+})
 
 vim.diagnostic.config({
 	virtual_text = {
@@ -271,3 +301,5 @@ vim.diagnostic.config({
 		-- current_line = true, -- Only show virtual text on the current line
 	},
 })
+
+vim.cmd([[colorscheme default]])
