@@ -22,15 +22,15 @@ vim.schedule(function()
 	vim.o.clipboard = "unnamedplus"
 end)
 vim.o.undofile = true
-vim.o.ignorecase = true
-vim.o.smartcase = true
+-- vim.o.ignorecase = true
+-- vim.o.smartcase = true
 vim.o.splitright = true
 vim.o.splitbelow = true
 vim.o.inccommand = "split"
-vim.opt.scrolloff = 5
+vim.opt.scrolloff = 4
 vim.opt.relativenumber = true
 vim.wo.fillchars = "eob: "
-vim.opt.completeopt = "menuone,preview"
+vim.opt.completeopt = "fuzzy,menu,menuone,preview,popup,noinsert"
 vim.opt.swapfile = false
 vim.opt.backup = false
 vim.opt.ruler = true
@@ -49,12 +49,18 @@ vim.g.loaded_netrwPlugin = 1
 
 -- Setup lazy.nvim
 require("lazy").setup({
+	-- Configure any other settings here. See the documentation for more details.
+	-- colorscheme that will be used when installing plugins.
+	install = { colorscheme = { "melange" } },
+	-- automatically check for plugin updates
+	checker = { enabled = false },
 	spec = {
 		{
-			"NMAC427/guess-indent.nvim",
-			opts = {},
+			"p00f/alabaster.nvim",
+			config = function()
+				vim.cmd("colorscheme default")
+			end,
 		},
-		{ "echasnovski/mini.base16", version = "*" },
 		{
 			"neovim/nvim-lspconfig",
 			config = function()
@@ -164,6 +170,7 @@ require("lazy").setup({
 			opts = {
 				view = {
 					side = "right", -- Sets the NvimTree to open on the right side
+					width = 70,
 				},
 				filters = {
 					dotfiles = false,
@@ -221,6 +228,8 @@ require("lazy").setup({
 					javascript = { "prettier", stop_after_first = true },
 					typescript = { "prettier", stop_after_first = true },
 					nim = { "nimpretty" },
+					json = { "prettier" },
+					puppet = { "prettier" },
 				},
 			},
 		},
@@ -268,9 +277,6 @@ vim.keymap.set("t", "<Esc><Esc>", "<C-\\><C-n>", { desc = "Exit terminal mode" }
 -- Map Ctrl-Space to trigger Omni-completion in Insert mode
 vim.api.nvim_set_keymap("i", "<C-Space>", "<C-x><C-o>", { noremap = true, silent = true })
 
--- Set completeopt options
-vim.opt.completeopt = { "menuone", "noselect", "noinsert", "preview" }
-
 -- Autocompletion after typing two characters
 -- This creates an autocommand that triggers omni-completion when
 -- two word characters are typed.
@@ -287,7 +293,7 @@ vim.api.nvim_create_autocmd("InsertCharPre", {
 		if char_before_cursor:match("%w") then
 			-- Check if there are at least 2 characters on the line
 			-- and if the last two characters (ending at the cursor position) are word characters
-			if col >= 2 and string.sub(line, col - 1, col):match("%w%w") then
+			if col >= 3 and string.sub(line, col - 1, col):match("%w%w") then
 				-- Trigger omni-completion
 				vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<C-x><C-o>", true, false, true), "n", false)
 			end
@@ -302,4 +308,22 @@ vim.diagnostic.config({
 	},
 })
 
-vim.cmd([[colorscheme default]])
+-- These are needed to override a race condition where Mini pick thinks .pp is for Pascal
+vim.api.nvim_create_autocmd({ "BufRead", "BufNewFile" }, {
+	pattern = "*.pp",
+	callback = function()
+		-- This should catch most direct file opens and new files
+		vim.bo.filetype = "puppet"
+		-- print("Debug: .pp set to json (BufRead/BufNewFile)")
+	end,
+	desc = "Set .pp files to json (initial)",
+})
+vim.api.nvim_create_autocmd("BufReadPre", {
+	pattern = "*.pp",
+	callback = function()
+		-- This runs before file content is read, ensuring it's set very early.
+		vim.bo.filetype = "puppet"
+		-- print("Debug: .pp forced to json (BufReadPre)")
+	end,
+	desc = "Force .pp files to json (BufReadPre for pickers)",
+})
