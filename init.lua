@@ -894,7 +894,6 @@ require('lazy').setup({
   },
 
   {
-    -- If you want to see what colorschemes are already installed, you can use `:Telescope colorscheme`.
     'folke/tokyonight.nvim',
     config = function()
       ---@diagnostic disable-next-line: missing-fields
@@ -903,14 +902,20 @@ require('lazy').setup({
           comments = { italic = false }, -- Disable italics in comments
         },
       }
-      -- vim.cmd.colorscheme 'tokyonight-night'
     end,
   },
+  -- lights themes
   { 'shaunsingh/seoul256.nvim' },
   { 'ronisbr/nano-theme.nvim' },
   { 'kepano/flexoki-neovim' },
   { 'rayes0/blossom.vim' },
-  { 'p00f/alabaster.nvim' },
+  {
+    'p00f/alabaster.nvim',
+    config = function()
+      vim.cmd.colorscheme 'alabaster'
+    end,
+  },
+  -- dark themes
   { 'frenzyexists/aquarium-vim' },
   { 'ficd0/ashen.nvim' },
   { 'xiantang/darcula-dark.nvim' },
