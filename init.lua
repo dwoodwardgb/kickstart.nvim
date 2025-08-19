@@ -628,7 +628,7 @@ require('lazy').setup({
           return nil
         else
           return {
-            timeout_ms = 500,
+            timeout_ms = 900,
             lsp_format = 'fallback',
           }
         end
@@ -779,7 +779,7 @@ require('lazy').setup({
       }
 
       -- TODO: change based on light/dark OS mode
-      vim.cmd.colorscheme 'kanagawa-dragon'
+      -- vim.cmd.colorscheme 'kanagawa-dragon'
     end,
   },
   { 'thepogsupreme/mountain.nvim' },
