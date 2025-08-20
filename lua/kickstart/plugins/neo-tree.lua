@@ -12,6 +12,7 @@ return {
   lazy = false,
   keys = {
     { '\\', ':Neotree reveal<CR>', desc = 'NeoTree reveal', silent = true },
+    { '<leader>b', ':Neotree reveal<CR>', desc = 'NeoTree reveal', silent = true },
   },
   opts = {
     window = {
@@ -21,6 +22,7 @@ return {
       window = {
         mappings = {
           ['\\'] = 'close_window',
+          ['<leader>b'] = 'close_window',
         },
       },
     },

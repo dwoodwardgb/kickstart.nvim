@@ -14,7 +14,7 @@ vim.o.tabstop = 2
 vim.o.softtabstop = 2
 vim.o.wrap = false
 vim.opt.fillchars = { eob = ' ' }
-vim.opt.completeopt = { 'menuone', 'select', 'noinsert', 'preview', 'popup' }
+vim.opt.completeopt = { 'menuone', 'noinsert', 'preview', 'popup' }
 
 -- Set <space> as the leader key
 -- See `:help mapleader`
@@ -179,6 +179,55 @@ rtp:prepend(lazypath)
 -- NOTE: Here is where you install your plugins.
 require('lazy').setup({
   install = { colorscheme = { 'default' } },
+  -- Auto theme detection plugin
+  {
+    'f-person/auto-dark-mode.nvim',
+    priority = 1000,
+    config = function()
+      local auto_dark_mode = require 'auto-dark-mode'
+      auto_dark_mode.setup {
+        update_interval = 2000, -- Check for theme changes every 2 seconds
+        set_dark_mode = function()
+          vim.cmd.colorscheme 'kanagawa-dragon'
+        end,
+        set_light_mode = function()
+          vim.cmd.colorscheme 'light-chromeclipse'
+        end,
+      }
+    end,
+  },
+  -- lights themes
+  { 'shaunsingh/seoul256.nvim' },
+  { 'ronisbr/nano-theme.nvim' },
+  { 'kepano/flexoki-neovim' },
+  { 'rayes0/blossom.vim' },
+  { 'p00f/alabaster.nvim' },
+  { 'josebalius/vim-light-chromeclipse' },
+  -- dark themes
+  { 'frenzyexists/aquarium-vim' },
+  { 'ficd0/ashen.nvim' },
+  { 'xiantang/darcula-dark.nvim' },
+  {
+    'rebelot/kanagawa.nvim',
+    config = function()
+      require('kanagawa').setup {
+        commentStyle = { italic = false },
+      }
+    end,
+  },
+  {
+    'folke/tokyonight.nvim',
+    config = function()
+      ---@diagnostic disable-next-line: missing-fields
+      require('tokyonight').setup {
+        styles = {
+          comments = { italic = false }, -- Disable italics in comments
+        },
+      }
+    end,
+  },
+  { 'thepogsupreme/mountain.nvim' },
+  { 'pauchiner/pastelnight.nvim' },
 
   -- NOTE: Plugins can be added with a link (or for a github repo: 'owner/repo' link).
   'NMAC427/guess-indent.nvim', -- Detect tabstop and shiftwidth automatically
@@ -710,46 +759,6 @@ require('lazy').setup({
       signature = { enabled = true },
     },
   },
-
-  {
-    'folke/tokyonight.nvim',
-    config = function()
-      ---@diagnostic disable-next-line: missing-fields
-      require('tokyonight').setup {
-        styles = {
-          comments = { italic = false }, -- Disable italics in comments
-        },
-      }
-    end,
-  },
-  -- lights themes
-  { 'shaunsingh/seoul256.nvim' },
-  { 'ronisbr/nano-theme.nvim' },
-  { 'kepano/flexoki-neovim' },
-  { 'rayes0/blossom.vim' },
-  {
-    'p00f/alabaster.nvim',
-    -- config = function()
-    --   vim.cmd.colorscheme 'alabaster'
-    -- end,
-  },
-  -- dark themes
-  { 'frenzyexists/aquarium-vim' },
-  { 'ficd0/ashen.nvim' },
-  { 'xiantang/darcula-dark.nvim' },
-  {
-    'rebelot/kanagawa.nvim',
-    config = function()
-      require('kanagawa').setup {
-        commentStyle = { italic = false },
-      }
-
-      -- TODO: change based on light/dark OS mode
-      -- vim.cmd.colorscheme 'kanagawa-dragon'
-    end,
-  },
-  { 'thepogsupreme/mountain.nvim' },
-  { 'pauchiner/pastelnight.nvim' },
 
   -- Highlight todo, notes, etc in comments
   { 'folke/todo-comments.nvim', event = 'VimEnter', dependencies = { 'nvim-lua/plenary.nvim' }, opts = { signs = false } },
