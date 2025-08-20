@@ -185,7 +185,6 @@ require('lazy').setup({
   -- Auto theme detection plugin
   {
     'f-person/auto-dark-mode.nvim',
-    priority = 1000,
     config = function()
       local auto_dark_mode = require 'auto-dark-mode'
       auto_dark_mode.setup {
@@ -215,6 +214,9 @@ require('lazy').setup({
     config = function()
       require('kanagawa').setup {
         commentStyle = { italic = false },
+        functionStyle = { italic = false },
+        keywordStyle = { italic = false },
+        statementStyle = { bold = false },
       }
     end,
   },
