@@ -15,6 +15,7 @@ vim.o.softtabstop = 2
 vim.o.wrap = false
 vim.opt.fillchars = { eob = ' ' }
 vim.opt.completeopt = { 'menuone', 'noinsert', 'preview', 'popup' }
+vim.opt.breakat = '^I!@*+;,./?'
 
 -- Set <space> as the leader key
 -- See `:help mapleader`
@@ -82,7 +83,7 @@ vim.o.splitbelow = true
 --   See `:help lua-options`
 --   and `:help lua-options-guide`
 vim.o.list = true
-vim.opt.listchars = { tab = '» ', trail = '·', nbsp = '␣' }
+vim.opt.listchars = { trail = '·', nbsp = '␣' }
 
 -- Preview substitutions live, as you type!
 vim.o.inccommand = 'split'
@@ -107,6 +108,8 @@ vim.keymap.set('n', '<Esc>', '<cmd>nohlsearch<CR>')
 
 -- Diagnostic keymaps
 vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostic [Q]uickfix list' })
+
+vim.keymap.set('n', '<leader>tw', '<cmd>set wrap!<CR>')
 
 -- Exit terminal mode in the builtin terminal with a shortcut that is a bit easier
 -- for people to discover. Otherwise, you normally need to press <C-\><C-n>, which
@@ -314,6 +317,7 @@ require('lazy').setup({
         { '<leader>', mode = { 'n', 'v' } },
         { 'g', mode = { 'n', 'v' } },
         { 'z', mode = { 'n', 'v' } },
+        { 'h', mode = { 'n', 'v' } },
         -- TODO: get trigger for 'v' in normal mode working again
         -- NOTE: from nvchad:
         -- keys = { "<leader>", "<c-w>", '"', "'", "`", "c", "v", "g" },
@@ -628,6 +632,7 @@ require('lazy').setup({
       local servers_enabled = {
         'lua_ls',
         'ts_ls',
+        'gopls',
       }
       for _, ls in ipairs(servers_enabled) do
         vim.lsp.enable(ls)
@@ -860,7 +865,7 @@ require('lazy').setup({
   -- require 'kickstart.plugins.lint',
   -- require 'kickstart.plugins.autopairs',
   require 'kickstart.plugins.neo-tree',
-  -- require 'kickstart.plugins.gitsigns', -- adds gitsigns recommend keymaps
+  require 'kickstart.plugins.gitsigns', -- adds gitsigns recommend keymaps
 
   -- NOTE: The import below can automatically add your own plugins, configuration, etc from `lua/custom/plugins/*.lua`
   --    This is the easiest way to modularize your config.
