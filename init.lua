@@ -14,7 +14,7 @@ vim.o.tabstop = 2
 vim.o.softtabstop = 2
 vim.o.wrap = false
 vim.opt.fillchars = { eob = ' ' }
-vim.opt.completeopt = { 'menuone', 'noinsert', 'preview', 'popup' }
+vim.opt.completeopt = { 'menuone', 'noinsert', 'noselect', 'preview', 'popup' }
 vim.opt.breakat = '^I!@*+;,./?'
 
 -- Set <space> as the leader key
@@ -374,19 +374,29 @@ require('lazy').setup({
       -- [[ Configure Telescope ]]
       -- See `:help telescope` and `:help telescope.setup()`
       require('telescope').setup {
-        -- You can put your default mappings / updates / etc. in here
-        --  All the info you're looking for is in `:help telescope.setup()`
-        --
-        -- defaults = {
-        --   mappings = {
-        --     i = { ['<c-enter>'] = 'to_fuzzy_refine' },
-        --   },
-        -- },
-        -- pickers = {}
         defaults = {
-          previewer = false,
+          -- NOTE: these values were picked testing from ~/d/fellowship which has many nested projects
+          -- path_display = {
+          --   truncate = 0,
+          --   shorten = { len = 1, exclude = { 1, 2, -2, -1 } },
+          -- },
+          borderchars = { '─', '', '', '', '', '', '', '' },
+          layout_strategy = 'vertical',
+          layout_config = {
+            horizontal = {
+              width = 0.999,
+              height = 0.999,
+              preview_width = 0.65,
+            },
+            vertical = {
+              width = 0.999,
+              height = 0.999,
+              preview_height = 0.5,
+            },
+          },
         },
         extensions = {
+          -- TODO: what does this do?
           ['ui-select'] = {
             require('telescope.themes').get_dropdown(),
           },
@@ -409,12 +419,15 @@ require('lazy').setup({
       vim.keymap.set('n', '<leader>sr', builtin.resume, { desc = '[S]earch [R]esume' })
       vim.keymap.set('n', '<leader>s.', builtin.oldfiles, { desc = '[S]earch Recent Files ("." for repeat)' })
       vim.keymap.set('n', '<leader><leader>', builtin.buffers, { desc = '[ ] Find existing buffers' })
+      vim.keymap.set('n', '<leader>st', builtin.colorscheme, { desc = '[S]earch [T]hemes' })
+
+      -- TODO: add builtin for cached searches/pickers see https://www.reddit.com/r/neovim/comments/phndpv/can_telescope_remember_my_last_search_result/
 
       -- Slightly advanced example of overriding default behavior and theme
       vim.keymap.set('n', '<leader>/', function()
         -- You can pass additional configuration to Telescope to change the theme, layout, etc.
         builtin.current_buffer_fuzzy_find(require('telescope.themes').get_dropdown {
-          winblend = 10,
+          -- winblend = 10,
           previewer = false,
         })
       end, { desc = '[/] Fuzzily search in current buffer' })
@@ -432,9 +445,6 @@ require('lazy').setup({
       vim.keymap.set('n', '<leader>sn', function()
         builtin.find_files { cwd = vim.fn.stdpath 'config' }
       end, { desc = '[S]earch [N]eovim files' })
-
-      -- stuff I added
-      vim.keymap.set('n', '<leader>st', builtin.colorscheme, { desc = '[S]earch [T]hemes' })
     end,
   },
 
@@ -680,6 +690,7 @@ require('lazy').setup({
         css = { 'prettier' },
         scss = { 'prettier' },
         nim = { 'nimpretty' },
+        puppet = { 'prettier' },
       },
     },
   },
@@ -898,4 +909,16 @@ require('lazy').setup({
       lazy = '💤 ',
     },
   },
+})
+
+vim.api.nvim_create_autocmd('BufEnter', {
+  pattern = '*.pp',
+  callback = function()
+    -- Only set if it's not already json, to avoid infinite loops or unnecessary work
+    if vim.bo.filetype ~= 'puppet' then
+      vim.bo.filetype = 'puppet'
+      -- print("Debug: .pp set to puppet (BufEnter fallback)")
+    end
+  end,
+  desc = 'Force .pp files to puppet (BufEnter fallback)',
 })
