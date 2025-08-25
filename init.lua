@@ -65,10 +65,10 @@ vim.o.undofile = true
 vim.o.signcolumn = 'yes'
 
 -- Decrease update time
-vim.o.updatetime = 250
+-- vim.o.updatetime = 250
 
 -- Decrease mapped sequence wait time
-vim.o.timeoutlen = 300
+-- vim.o.timeoutlen = 300
 
 -- Configure how new splits should be opened
 vim.o.splitright = true
@@ -83,7 +83,7 @@ vim.o.splitbelow = true
 --   See `:help lua-options`
 --   and `:help lua-options-guide`
 vim.o.list = true
-vim.opt.listchars = { tab = '. ', trail = '·', nbsp = '␣' }
+-- vim.opt.listchars = { tab = '. ', trail = '·', nbsp = '␣' }
 
 -- Preview substitutions live, as you type!
 vim.o.inccommand = 'split'
@@ -363,11 +363,12 @@ require('lazy').setup({
       -- This opens a window that shows you all of the keymaps for the current
       -- Telescope picker. This is really useful to discover what Telescope can
       -- do as well as how to actually do it!
+      local Layout = require 'telescope.pickers.layout'
       require('telescope').setup {
         defaults = {
           path_display = {
             truncate = 0,
-            -- shorten = { len = 1, exclude = { 1, 2, -2, -1 } },
+            -- shorten = { len = 1, exclude = { 1, 2, -2, -1 } }, -- these were set with the fellowship monorepo in mind
           },
           borderchars = { '─', '', '', '', '', '', '', '' },
           layout_strategy = 'vertical',
@@ -384,6 +385,97 @@ require('lazy').setup({
               preview_height = 0.5,
             },
           },
+          create_layout = function(picker)
+            local function create_window(bufnr, enter, win_opts)
+              local winid = vim.api.nvim_open_win(bufnr, enter, win_opts)
+              vim.wo[winid].winhighlight = 'Normal:Normal'
+              return Layout.Window {
+                bufnr = bufnr,
+                winid = winid,
+              }
+            end
+
+            local function destory_window(window)
+              if window then
+                if vim.api.nvim_win_is_valid(window.winid) then
+                  vim.api.nvim_win_close(window.winid, true)
+                end
+                if vim.api.nvim_buf_is_valid(window.bufnr) then
+                  vim.api.nvim_buf_delete(window.bufnr, { force = true })
+                end
+              end
+            end
+
+            local layout = Layout {
+              picker = picker,
+              mount = function(self)
+                local screen_width = vim.api.nvim_get_option 'columns'
+                local screen_height = vim.api.nvim_get_option 'lines'
+
+                -- Prompt Configuration:
+                -- We want 1 line of content + 1 line for the top border. No bottom border.
+                local prompt_content_height = 1
+                -- The total *visual* height the prompt window will occupy on screen.
+                -- 1 (top border) + prompt_content_height
+                local prompt_total_visual_height = 1 + prompt_content_height
+                -- Results Configuration:
+                -- The results window will take up all remaining space.
+                local results_height = screen_height - prompt_total_visual_height
+
+                -- self.results = create_window(false, 40, 20, 0, 0, 'Results')
+                -- self.preview = create_window(false, 40, 23, 0, 42, 'Preview')
+                -- self.prompt = create_window(true, 40, 1, 22, 0, 'Prompt')
+                -- Create a fullscreen results window (minus space for prompt if overlaying)
+                self.results = create_window(
+                  vim.api.nvim_create_buf(false, true), -- New buffer for results
+                  false, -- Don't enter buffer immediately
+                  {
+                    style = 'minimal',
+                    relative = 'editor',
+                    width = screen_width,
+                    height = results_height, -- Take up most of the screen
+                    row = 0, -- Top of the screen
+                    col = 0, -- Left edge
+                    border = 'single',
+                    title = 'Telescope Results',
+                  }
+                )
+
+                -- Create the prompt window, positioned at the bottom, full width
+                -- It will float *on top* of the results window,
+                -- which is why we reduced results_height above.
+                self.prompt = create_window(
+                  vim.api.nvim_create_buf(false, true), -- New buffer for prompt
+                  true, -- Enter buffer immediately
+                  {
+                    style = 'minimal',
+                    relative = 'editor',
+                    width = screen_width,
+                    height = prompt_content_height, -- Actual content lines
+                    row = screen_height - prompt_total_visual_height, -- Position at the bottom, accounting for its total visual height
+                    col = 0,
+                    border = { '', '─', '', '', '', '', '', '' },
+                    title = 'Prompt',
+                  }
+                )
+
+                -- For a truly fullscreen experience, you might not want a separate preview.
+                -- If you still want a preview, you'd need to partition the fullscreen.
+                -- For now, let's not create a separate preview window, or make it invisible.
+                self.preview = nil
+                -- If you wanted a preview:
+                -- self.preview = create_window(false, 0, 0, 0, 0, 'Preview') -- Make it effectively hidden
+              end,
+              unmount = function(self)
+                destory_window(self.results)
+                destory_window(self.preview)
+                destory_window(self.prompt)
+              end,
+              update = function(self) end,
+            }
+
+            return layout
+          end,
         },
         extensions = {
           -- TODO: what does this do?
@@ -815,11 +907,15 @@ require('lazy').setup({
       --  Check out: https://github.com/echasnovski/mini.nvim
     end,
   },
-  { -- Highlight, edit, and navigate code
+  {
     'nvim-treesitter/nvim-treesitter',
     build = ':TSUpdate',
-    main = 'nvim-treesitter.configs', -- Sets main module to use for opts
-    -- [[ Configure Treesitter ]] See `:help nvim-treesitter`
+    config = function(opts)
+      require('nvim-treesitter.configs').setup(opts)
+      vim.o.foldmethod = 'expr'
+      vim.o.foldexpr = 'v:lua.vim.treesitter.foldexpr()'
+      vim.o.foldlevel = 99
+    end,
     opts = {
       ensure_installed = {
         'bash',
