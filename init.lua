@@ -87,7 +87,7 @@ vim.o.inccommand = 'split'
 vim.o.cursorline = true
 
 -- Minimal number of screen lines to keep above and below the cursor.
-vim.o.scrolloff = 4
+vim.o.scrolloff = 5
 
 -- if performing an operation that would fail due to unsaved changes in the buffer (like `:q`),
 -- instead raise a dialog asking if you wish to save the current file(s)
@@ -113,12 +113,6 @@ vim.keymap.set('n', '<leader>tw', '<cmd>set wrap!<CR>', { desc = '[T]oggle line 
 -- NOTE: This won't work in all terminal emulators/tmux/etc. Try your own mapping
 -- or just use <C-\><C-n> to exit terminal mode
 vim.keymap.set('t', '<Esc><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode' })
-
--- TIP: Disable arrow keys in normal mode
--- vim.keymap.set('n', '<left>', '<cmd>echo "Use h to move!!"<CR>')
--- vim.keymap.set('n', '<right>', '<cmd>echo "Use l to move!!"<CR>')
--- vim.keymap.set('n', '<up>', '<cmd>echo "Use k to move!!"<CR>')
--- vim.keymap.set('n', '<down>', '<cmd>echo "Use j to move!!"<CR>')
 
 -- Keybinds to make split navigation easier.
 --  Use CTRL+<hjkl> to switch between windows
@@ -189,8 +183,8 @@ require('lazy').setup({
           vim.cmd.colorscheme 'kanagawa-dragon'
         end,
         set_light_mode = function()
-          -- vim.cmd.colorscheme 'light-chromeclipse'
-          vim.cmd.colorscheme 'default'
+          vim.cmd.colorscheme 'light-chromeclipse'
+          -- vim.cmd.colorscheme 'default'
         end,
       }
     end,
@@ -1001,6 +995,7 @@ require('lazy').setup({
 
 -- Force .pp to be treated as puppet files, not Pascal
 -- NOTE: used AI, could be wrong
+-- TODO: decide if BufEnter is the best trigger
 vim.api.nvim_create_autocmd('BufEnter', {
   pattern = '*.pp',
   callback = function()
@@ -1013,20 +1008,18 @@ vim.api.nvim_create_autocmd('BufEnter', {
   desc = 'Force .pp files to puppet (BufEnter fallback)',
 })
 
--- Language (filetype) specific settings
+-- Default indent settings, will be overrident by guess-indent and this autocommand
+vim.o.expandtab = true
+vim.o.shiftwidth = 2
+vim.o.tabstop = 2
+vim.o.softtabstop = 2
 vim.api.nvim_create_autocmd('BufEnter', {
   pattern = '*',
   callback = function()
-    -- Only set if it's not already json, to avoid infinite loops or unnecessary work
+    -- TODO: set max column/ruler and configure q to wrap comments correctly accordingly
     if vim.bo.filetype == 'go' then
       vim.o.tabstop = 4
-      vim.o.shiftwidth = 4
-      vim.o.expandtab = false
     else
-      vim.o.expandtab = true
-      vim.o.shiftwidth = 2
-      vim.o.tabstop = 2
-      vim.o.softtabstop = 2
     end
   end,
   desc = 'Set language specific settings',
