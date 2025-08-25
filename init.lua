@@ -7,11 +7,6 @@ If you experience any errors while trying to install kickstart, run `:checkhealt
 
 --]]
 
--- My own tweaks
-vim.o.expandtab = true
-vim.o.shiftwidth = 2
-vim.o.tabstop = 2
-vim.o.softtabstop = 2
 vim.o.wrap = false
 vim.opt.fillchars = { eob = ' ' }
 vim.opt.completeopt = { 'menuone', 'noinsert', 'noselect', 'preview', 'popup' }
@@ -184,6 +179,7 @@ require('lazy').setup({
   install = { colorscheme = { 'default' } },
   -- Auto theme detection plugin
   {
+    -- TODO: use dark notify instead
     'f-person/auto-dark-mode.nvim',
     config = function()
       local auto_dark_mode = require 'auto-dark-mode'
@@ -193,7 +189,8 @@ require('lazy').setup({
           vim.cmd.colorscheme 'kanagawa-dragon'
         end,
         set_light_mode = function()
-          vim.cmd.colorscheme 'light-chromeclipse'
+          -- vim.cmd.colorscheme 'light-chromeclipse'
+          vim.cmd.colorscheme 'default'
         end,
       }
     end,
@@ -233,10 +230,7 @@ require('lazy').setup({
   },
   { 'thepogsupreme/mountain.nvim' },
   { 'pauchiner/pastelnight.nvim' },
-
-  -- NOTE: Plugins can be added with a link (or for a github repo: 'owner/repo' link).
-  'NMAC427/guess-indent.nvim', -- Detect tabstop and shiftwidth automatically
-
+  { 'NMAC427/guess-indent.nvim' },
   { -- Adds git related signs to the gutter, as well as utilities for managing changes
     'lewis6991/gitsigns.nvim',
     opts = {
@@ -1005,14 +999,35 @@ require('lazy').setup({
   },
 })
 
+-- Force .pp to be treated as puppet files, not Pascal
+-- NOTE: used AI, could be wrong
 vim.api.nvim_create_autocmd('BufEnter', {
   pattern = '*.pp',
   callback = function()
-    -- Only set if it's not already json, to avoid infinite loops or unnecessary work
+    -- Only set if it's not already set, to avoid infinite loops or unnecessary work
     if vim.bo.filetype ~= 'puppet' then
       vim.bo.filetype = 'puppet'
       -- print("Debug: .pp set to puppet (BufEnter fallback)")
     end
   end,
   desc = 'Force .pp files to puppet (BufEnter fallback)',
+})
+
+-- Language (filetype) specific settings
+vim.api.nvim_create_autocmd('BufEnter', {
+  pattern = '*',
+  callback = function()
+    -- Only set if it's not already json, to avoid infinite loops or unnecessary work
+    if vim.bo.filetype == 'go' then
+      vim.o.tabstop = 4
+      vim.o.shiftwidth = 4
+      vim.o.expandtab = false
+    else
+      vim.o.expandtab = true
+      vim.o.shiftwidth = 2
+      vim.o.tabstop = 2
+      vim.o.softtabstop = 2
+    end
+  end,
+  desc = 'Set language specific settings',
 })

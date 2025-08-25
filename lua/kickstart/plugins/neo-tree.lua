@@ -1,6 +1,12 @@
 -- Neo-tree is a Neovim plugin to browse the file system
 -- https://github.com/nvim-neo-tree/neo-tree.nvim
 
+-- TODO: investigate if we can
+-- 1. keep it out of the buffer list
+-- 2. use it as an :Explorer replacement
+-- 3. show hidden files
+-- 4. use unicode instead of nerd font icons
+-- 5. maybe use oil?
 return {
   'nvim-neo-tree/neo-tree.nvim',
   version = '*',
