@@ -19,7 +19,7 @@ vim.g.mapleader = ' '
 vim.g.maplocalleader = ' '
 
 -- Set to true if you have a Nerd Font installed and selected in the terminal
-vim.g.have_nerd_font = true
+vim.g.have_nerd_font = false
 
 -- [[ Setting options ]]
 -- See `:help vim.o`
@@ -91,6 +91,8 @@ vim.o.scrolloff = 5
 -- See `:help 'confirm'`
 vim.o.confirm = true
 
+vim.g.netrw_liststyle = 3
+
 -- [[ Basic Keymaps ]]
 --  See `:help vim.keymap.set()`
 
@@ -115,10 +117,33 @@ vim.keymap.set('t', '<Esc><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode' }
 --  Use CTRL+<hjkl> to switch between windows
 --
 --  See `:help wincmd` for a list of all window commands
+--  TODO: consider using Meta instead of control for ergonomics on real keyboard
 vim.keymap.set('n', '<C-h>', '<C-w><C-h>', { desc = 'Move focus to the left window' })
 vim.keymap.set('n', '<C-l>', '<C-w><C-l>', { desc = 'Move focus to the right window' })
 vim.keymap.set('n', '<C-j>', '<C-w><C-j>', { desc = 'Move focus to the lower window' })
 vim.keymap.set('n', '<C-k>', '<C-w><C-k>', { desc = 'Move focus to the upper window' })
+
+local function find_or_open_netrw()
+  -- Iterate through all existing buffers
+  for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+    if vim.api.nvim_buf_is_loaded(bufnr) then
+      -- Get the filetype of the buffer
+      local filetype = vim.api.nvim_buf_get_option(bufnr, 'filetype')
+      -- Netrw buffers have a 'netrw' filetype
+      if filetype == 'netrw' then
+        -- Found an existing Netrw buffer.
+        -- Go to the buffer and ensure it's in a window.
+        -- This might open it in the current window or switch to it if visible.
+        vim.cmd('buffer ' .. bufnr)
+        return
+      end
+    end
+  end
+
+  -- If no Netrw buffer was found, open a new one with :Explore
+  vim.cmd 'Explore'
+end
+vim.keymap.set('n', '<leader>b', find_or_open_netrw, { desc = 'Toggle/Open Netrw file explorer' })
 
 -- NOTE: Some terminals have colliding keymaps or are not able to send distinct keycodes
 -- vim.keymap.set("n", "<C-S-h>", "<C-w>H", { desc = "Move window to the left" })
@@ -193,6 +218,41 @@ require('lazy').setup({
   { 'rayes0/blossom.vim' },
   { 'p00f/alabaster.nvim' },
   { 'josebalius/vim-light-chromeclipse' },
+  {
+    'miikanissi/modus-themes.nvim',
+    config = function()
+      require('modus-themes').setup {
+        styles = {
+          comments = { italic = false },
+          keywords = { italic = false },
+          functions = {},
+          variables = {},
+        },
+      }
+    end,
+  },
+  {
+    'iibe/gruvbox-high-contrast',
+    config = function()
+      vim.g.gruvbox_bold = 0
+      vim.g.gruvbox_italic = 0
+      vim.g.gruvbox_transparent_bg = 1
+    end,
+  },
+  {
+    'racakenon/mytilus',
+    config = function()
+      require('mytilus.configs').setup {
+        options = {
+          sideBarDim = false, --if false then sidebar bg is same normal
+          statusBarRevers = true, --if false, statusBarRevers bg is d2_black,
+          NCWindowDim = true, --if false, not current window bg is same normal
+          str = { bold = false },
+          func = { bold = false, italic = false },
+        },
+      }
+    end,
+  },
   -- dark themes
   { 'frenzyexists/aquarium-vim' },
   { 'ficd0/ashen.nvim' },
@@ -329,7 +389,6 @@ require('lazy').setup({
       { 'nvim-telescope/telescope-ui-select.nvim' },
 
       -- Useful for getting pretty icons, but requires a Nerd Font.
-      { 'nvim-tree/nvim-web-devicons', enabled = vim.g.have_nerd_font },
       'kkharji/sqlite.lua',
       'nvim-telescope/telescope-smart-history.nvim',
     },
@@ -563,14 +622,24 @@ require('lazy').setup({
           },
           mappings = {
             i = {
+              ['<C-j>'] = require('telescope.actions').cycle_history_next,
+              ['<C-Down>'] = require('telescope.actions').cycle_history_next,
               ['<M-j>'] = require('telescope.actions').cycle_history_next,
               ['<M-Down>'] = require('telescope.actions').cycle_history_next,
+
+              ['<C-k>'] = require('telescope.actions').cycle_history_prev,
+              ['<C-Up>'] = require('telescope.actions').cycle_history_prev,
               ['<M-k>'] = require('telescope.actions').cycle_history_prev,
               ['<M-Up>'] = require('telescope.actions').cycle_history_prev,
             },
             n = {
+              ['<C-j>'] = require('telescope.actions').cycle_history_next,
+              ['<C-Down>'] = require('telescope.actions').cycle_history_next,
               ['<M-j>'] = require('telescope.actions').cycle_history_next,
               ['<M-Down>'] = require('telescope.actions').cycle_history_next,
+
+              ['<C-k>'] = require('telescope.actions').cycle_history_prev,
+              ['<C-Up>'] = require('telescope.actions').cycle_history_prev,
               ['<M-k>'] = require('telescope.actions').cycle_history_prev,
               ['<M-Up>'] = require('telescope.actions').cycle_history_prev,
             },
@@ -998,6 +1067,22 @@ require('lazy').setup({
   -- Highlight todo, notes, etc in comments
   { 'folke/todo-comments.nvim', event = 'VimEnter', dependencies = { 'nvim-lua/plenary.nvim' }, opts = { signs = false } },
 
+  {
+    'prichrd/netrw.nvim',
+    opts = {
+      -- File icons to use when `use_devicons` is false or if
+      -- no icon is found for the given file type.
+      icons = {
+        symlink = '🔗',
+        directory = '📁',
+        file = '📄',
+      },
+      -- Uses mini.icon or nvim-web-devicons if true, otherwise use the file icon specified above
+      use_devicons = vim.g.have_nerd_font,
+      mappings = {},
+    },
+  },
+
   { -- Collection of various small independent plugins/modules
     'echasnovski/mini.nvim',
     config = function()
@@ -1040,9 +1125,10 @@ require('lazy').setup({
     build = ':TSUpdate',
     config = function(opts)
       require('nvim-treesitter.configs').setup(opts)
-      vim.o.foldmethod = 'expr'
-      vim.o.foldexpr = 'v:lua.vim.treesitter.foldexpr()'
-      vim.o.foldlevel = 99
+      -- TODO: this is broken for some reason
+      -- vim.o.foldmethod = 'expr'
+      -- vim.o.foldexpr = 'v:lua.vim.treesitter.foldexpr()'
+      -- vim.o.foldlevel = 99
     end,
     opts = {
       ensure_installed = {
@@ -1098,7 +1184,6 @@ require('lazy').setup({
   -- require 'kickstart.plugins.indent_line',
   -- require 'kickstart.plugins.lint',
   -- require 'kickstart.plugins.autopairs',
-  require 'kickstart.plugins.neo-tree',
   require 'kickstart.plugins.gitsigns', -- adds gitsigns recommend keymaps
 
   -- NOTE: The import below can automatically add your own plugins, configuration, etc from `lua/custom/plugins/*.lua`
