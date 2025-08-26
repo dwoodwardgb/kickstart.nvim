@@ -170,12 +170,12 @@ require('lazy').setup({
   install = { colorscheme = { 'default' } },
   -- Auto theme detection plugin
   {
-    -- TODO: use dark notify instead
+    -- NOTE: you can use dark-notify if you're only tragetting MacOS. Using this instead because this config is used on Linux sometimes
     'f-person/auto-dark-mode.nvim',
     config = function()
       local auto_dark_mode = require 'auto-dark-mode'
       auto_dark_mode.setup {
-        update_interval = 2000, -- Check for theme changes every 2 seconds
+        update_interval = 4000, -- Check for theme changes every 4 seconds
         set_dark_mode = function()
           vim.cmd.colorscheme 'kanagawa-dragon'
         end,
@@ -309,7 +309,6 @@ require('lazy').setup({
   },
 
   { -- Fuzzy Finder (files, lsp, etc)
-    -- TODO: add smart history
     'nvim-telescope/telescope.nvim',
     event = 'VimEnter',
     dependencies = {
@@ -331,6 +330,8 @@ require('lazy').setup({
 
       -- Useful for getting pretty icons, but requires a Nerd Font.
       { 'nvim-tree/nvim-web-devicons', enabled = vim.g.have_nerd_font },
+      'kkharji/sqlite.lua',
+      'nvim-telescope/telescope-smart-history.nvim',
     },
     config = function()
       -- The easiest way to use Telescope, is to start by doing something like:
@@ -534,6 +535,7 @@ require('lazy').setup({
 
         return layout
       end
+
       require('telescope').setup {
         defaults = {
           path_display = {
@@ -555,6 +557,24 @@ require('lazy').setup({
             },
           },
           create_layout = default_create_layout,
+          history = {
+            path = '~/.local/share/nvim/databases/telescope_history.sqlite3',
+            limit = 100,
+          },
+          mappings = {
+            i = {
+              ['<M-j>'] = require('telescope.actions').cycle_history_next,
+              ['<M-Down>'] = require('telescope.actions').cycle_history_next,
+              ['<M-k>'] = require('telescope.actions').cycle_history_prev,
+              ['<M-Up>'] = require('telescope.actions').cycle_history_prev,
+            },
+            n = {
+              ['<M-j>'] = require('telescope.actions').cycle_history_next,
+              ['<M-Down>'] = require('telescope.actions').cycle_history_next,
+              ['<M-k>'] = require('telescope.actions').cycle_history_prev,
+              ['<M-Up>'] = require('telescope.actions').cycle_history_prev,
+            },
+          },
         },
         extensions = {
           -- TODO: what does this do?
@@ -567,9 +587,11 @@ require('lazy').setup({
       -- Enable Telescope extensions if they are installed
       pcall(require('telescope').load_extension, 'fzf')
       pcall(require('telescope').load_extension, 'ui-select')
+      pcall(require('telescope').load_extension, 'smart_history')
 
       -- See `:help telescope.builtin`
       local builtin = require 'telescope.builtin'
+
       vim.keymap.set('n', '<leader>sh', builtin.help_tags, { desc = '[S]earch [H]elp' })
       vim.keymap.set('n', '<leader>sk', builtin.keymaps, { desc = '[S]earch [K]eymaps' })
       vim.keymap.set('n', '<leader>p', function()
