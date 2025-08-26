@@ -60,7 +60,7 @@ vim.o.smartcase = true
 -- Keep signcolumn on by default
 vim.o.signcolumn = 'yes'
 -- Decrease mapped sequence wait time
-vim.o.timeoutlen = 300
+vim.o.timeoutlen = 250
 
 -- Configure how new splits should be opened
 vim.o.splitright = true
@@ -601,8 +601,15 @@ require('lazy').setup({
           borderchars = { '─', '', '', '', '', '', '', '' },
           layout_strategy = 'vertical',
           word_match = '-w',
+          -- TODO: default text optionally be that which is selected
         }
-      end, { desc = '[S]earch by [G]rep' })
+      end, { desc = '[F]ind in files' })
+      vim.keymap.set('n', '<leader>sg', function()
+        builtin.live_grep {
+          borderchars = { '─', '', '', '', '', '', '', '' },
+          layout_strategy = 'vertical',
+        }
+      end, { desc = '[S]earch [G]rep' })
       vim.keymap.set('n', '<leader>sd', builtin.diagnostics, { desc = '[S]earch [D]iagnostics' })
       vim.keymap.set('n', '<leader>s.', function()
         builtin.oldfiles {
