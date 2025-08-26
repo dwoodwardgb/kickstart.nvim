@@ -61,12 +61,8 @@ vim.o.undofile = true
 
 -- Keep signcolumn on by default
 vim.o.signcolumn = 'yes'
-
--- Decrease update time
--- vim.o.updatetime = 250
-
 -- Decrease mapped sequence wait time
--- vim.o.timeoutlen = 300
+vim.o.timeoutlen = 300
 
 -- Configure how new splits should be opened
 vim.o.splitright = true
@@ -242,19 +238,14 @@ require('lazy').setup({
   },
 
   -- NOTE: Plugins can also be configured to run Lua code when they are loaded.
-  --
   -- This is often very useful to both group configuration, as well as handle
   -- lazy loading plugins that don't need to be loaded immediately at startup.
-  --
   -- For example, in the following configuration, we use:
   --  event = 'VimEnter'
-  --
   -- which loads which-key before all the UI elements are loaded. Events can be
   -- normal autocommands events (`:help autocmd-events`).
-  --
   -- Then, because we use the `opts` key (recommended), the configuration runs
   -- after the plugin has been loaded as `require(MODULE).setup(opts)`.
-
   { -- Useful plugin to show you pending keybinds.
     'folke/which-key.nvim',
     event = 'VimEnter', -- Sets the loading event to 'VimEnter'
@@ -360,7 +351,12 @@ require('lazy').setup({
       local Layout = require 'telescope.pickers.layout'
       local function default_create_layout(picker)
         -- HACK: whitelist of prompt titles we use to apply the custom layout tweaks to
-        local is_vertical = (picker.prompt_title == 'Live Grep' or picker.prompt_title:find('Find Word', 1, true) == 1 or picker.prompt_title == 'Oldfiles')
+        local is_vertical = (
+          picker.prompt_title == 'Live Grep'
+          or picker.prompt_title:find('Find Word', 1, true) == 1
+          or picker.prompt_title == 'Oldfiles'
+          or picker.prompt_title == 'Live Grep in Open Files'
+        )
 
         local function make_border(border)
           if not border then
@@ -389,7 +385,7 @@ require('lazy').setup({
             -- HACK: force it to be fullscreen and have only one border between neighbors like border collapse in table css
             if is_vertical then
               popup_opts.preview.line = popup_opts.preview.line - 1
-              popup_opts.preview.height = popup_opts.preview.height + 1
+              popup_opts.preview.height = popup_opts.preview.height + 2
               popup_opts.preview.width = popup_opts.preview.width + 2
               popup_opts.preview.border = { 0, 0, 0, 0 }
               popup_opts.results.height = popup_opts.results.height + 1
@@ -577,20 +573,20 @@ require('lazy').setup({
       local builtin = require 'telescope.builtin'
       vim.keymap.set('n', '<leader>sh', builtin.help_tags, { desc = '[S]earch [H]elp' })
       vim.keymap.set('n', '<leader>sk', builtin.keymaps, { desc = '[S]earch [K]eymaps' })
-      vim.keymap.set('n', '<leader>sf', function()
+      vim.keymap.set('n', '<leader>p', function()
         builtin.find_files(require('telescope.themes').get_dropdown {
           previewer = false,
         })
       end, { desc = '[S]earch [F]iles' })
       vim.keymap.set('n', '<leader>ss', builtin.builtin, { desc = '[S]earch [S]elect Telescope' })
       -- TODO: figure out how to search exactly by case etc (non fuzzy)
-      vim.keymap.set('n', '<leader>sr', builtin.resume, { desc = '[S]earch [R]esume' })
+      vim.keymap.set('n', '<leader>r', builtin.resume, { desc = '[R]esume' })
       vim.keymap.set('n', '<leader><leader>', function()
         builtin.buffers(require('telescope.themes').get_dropdown {
           previewer = false,
         })
       end, { desc = '[ ] Find existing buffers' })
-      vim.keymap.set('n', '<leader>st', function()
+      vim.keymap.set('n', '<leader>kt', function()
         builtin.colorscheme(require('telescope.themes').get_dropdown {
           previewer = false,
         })
@@ -602,10 +598,11 @@ require('lazy').setup({
           layout_strategy = 'vertical',
         }
       end, { desc = '[S]earch current [W]ord' })
-      vim.keymap.set('n', '<leader>sg', function()
+      vim.keymap.set('n', '<leader>f', function()
         builtin.live_grep {
           borderchars = { '─', '', '', '', '', '', '', '' },
           layout_strategy = 'vertical',
+          word_match = '-w',
         }
       end, { desc = '[S]earch by [G]rep' })
       vim.keymap.set('n', '<leader>sd', builtin.diagnostics, { desc = '[S]earch [D]iagnostics' })
@@ -631,6 +628,8 @@ require('lazy').setup({
         builtin.live_grep {
           grep_open_files = true,
           prompt_title = 'Live Grep in Open Files',
+          borderchars = { '─', '', '', '', '', '', '', '' },
+          layout_strategy = 'vertical',
         }
       end, { desc = '[S]earch [/] in Open Files' })
 
