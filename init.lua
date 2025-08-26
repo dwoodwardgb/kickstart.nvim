@@ -354,21 +354,204 @@ require('lazy').setup({
       -- This opens a window that shows you all of the keymaps for the current
       -- Telescope picker. This is really useful to discover what Telescope can
       -- do as well as how to actually do it!
+      local a = vim.api
+      local popup = require 'plenary.popup'
+      local utils = require 'telescope.utils'
       local Layout = require 'telescope.pickers.layout'
+      local function default_create_layout(picker)
+        -- HACK: whitelist of prompt titles we use to apply the custom layout tweaks to
+        local is_vertical = (picker.prompt_title == 'Live Grep' or picker.prompt_title:find('Find Word', 1, true) == 1 or picker.prompt_title == 'Oldfiles')
+
+        local function make_border(border)
+          if not border then
+            return nil
+          end
+          border.winid = border.win_id
+          return border
+        end
+
+        local layout = Layout {
+          picker = picker,
+          ---@param self TelescopeLayout
+          mount = function(self)
+            local line_count = vim.o.lines - vim.o.cmdheight
+            if vim.o.laststatus ~= 0 then
+              line_count = line_count - 1
+            end
+
+            if is_vertical then
+              -- HACK: use the full window height for vertical layouts
+              line_count = line_count + 3
+            end
+
+            local popup_opts = picker:get_window_options(vim.o.columns, line_count)
+
+            -- HACK: force it to be fullscreen and have only one border between neighbors like border collapse in table css
+            if is_vertical then
+              popup_opts.preview.line = popup_opts.preview.line - 1
+              popup_opts.preview.height = popup_opts.preview.height + 1
+              popup_opts.preview.width = popup_opts.preview.width + 2
+              popup_opts.preview.border = { 0, 0, 0, 0 }
+              popup_opts.results.height = popup_opts.results.height + 1
+              popup_opts.results.width = popup_opts.results.width + 2
+              popup_opts.results.border = { 1, 0, 0, 1 }
+              popup_opts.prompt.line = popup_opts.prompt.line + 1
+              popup_opts.prompt.width = popup_opts.prompt.width + 2
+              popup_opts.prompt.border = { 1, 0, 0, 1 }
+            end
+
+            popup_opts.results.focusable = true
+            popup_opts.results.minheight = popup_opts.results.height
+            popup_opts.results.highlight = 'TelescopeResultsNormal'
+            popup_opts.results.borderhighlight = 'TelescopeResultsBorder'
+            popup_opts.results.titlehighlight = 'TelescopeResultsTitle'
+            popup_opts.prompt.minheight = popup_opts.prompt.height
+            popup_opts.prompt.highlight = 'TelescopePromptNormal'
+            popup_opts.prompt.borderhighlight = 'TelescopePromptBorder'
+            popup_opts.prompt.titlehighlight = 'TelescopePromptTitle'
+
+            if popup_opts.preview then
+              popup_opts.preview.focusable = true
+              popup_opts.preview.minheight = popup_opts.preview.height
+              popup_opts.preview.highlight = 'TelescopePreviewNormal'
+              popup_opts.preview.borderhighlight = 'TelescopePreviewBorder'
+              popup_opts.preview.titlehighlight = 'TelescopePreviewTitle'
+            end
+
+            local results_win, results_opts = picker:_create_window('', popup_opts.results)
+            local results_bufnr = a.nvim_win_get_buf(results_win)
+
+            self.results = Layout.Window {
+              winid = results_win,
+              bufnr = results_bufnr,
+              border = make_border(results_opts.border),
+            }
+
+            if popup_opts.preview then
+              local preview_win, preview_opts = picker:_create_window('', popup_opts.preview)
+              local preview_bufnr = a.nvim_win_get_buf(preview_win)
+
+              self.preview = Layout.Window {
+                winid = preview_win,
+                bufnr = preview_bufnr,
+                border = make_border(preview_opts.border),
+              }
+            end
+
+            local prompt_win, prompt_opts = picker:_create_window('', popup_opts.prompt)
+            local prompt_bufnr = a.nvim_win_get_buf(prompt_win)
+
+            self.prompt = Layout.Window {
+              winid = prompt_win,
+              bufnr = prompt_bufnr,
+              border = make_border(prompt_opts.border),
+            }
+          end,
+          ---@param self TelescopeLayout
+          unmount = function(self)
+            utils.win_delete('results_win', self.results.winid, true, true)
+            if self.preview then
+              utils.win_delete('preview_win', self.preview.winid, true, true)
+            end
+
+            utils.win_delete('prompt_border_win', self.prompt.border.winid, true, true)
+            utils.win_delete('results_border_win', self.results.border.winid, true, true)
+            if self.preview then
+              utils.win_delete('preview_border_win', self.preview.border.winid, true, true)
+            end
+
+            -- we cant use win_delete. We first need to close and then delete the buffer
+            if vim.api.nvim_win_is_valid(self.prompt.winid) then
+              vim.api.nvim_win_close(self.prompt.winid, true)
+            end
+            vim.schedule(function()
+              utils.buf_delete(self.prompt.bufnr)
+            end)
+          end,
+          ---@param self TelescopeLayout
+          update = function(self)
+            local line_count = vim.o.lines - vim.o.cmdheight
+            if vim.o.laststatus ~= 0 then
+              line_count = line_count - 1
+            end
+
+            local popup_opts = picker:get_window_options(vim.o.columns, line_count)
+            -- `popup.nvim` massaging so people don't have to remember minheight shenanigans
+            popup_opts.results.minheight = popup_opts.results.height
+            popup_opts.prompt.minheight = popup_opts.prompt.height
+            if popup_opts.preview then
+              popup_opts.preview.minheight = popup_opts.preview.height
+            end
+
+            local prompt_win = self.prompt.winid
+            local results_win = self.results.winid
+            local preview_win = self.preview and self.preview.winid
+
+            local preview_opts
+            if popup_opts.preview then
+              if preview_win ~= nil then
+                -- Move all popups at the same time
+                popup.move(prompt_win, popup_opts.prompt)
+                popup.move(results_win, popup_opts.results)
+                popup.move(preview_win, popup_opts.preview)
+              else
+                popup_opts.preview.focusable = true
+                popup_opts.preview.highlight = 'TelescopePreviewNormal'
+                popup_opts.preview.borderhighlight = 'TelescopePreviewBorder'
+                popup_opts.preview.titlehighlight = 'TelescopePreviewTitle'
+                local preview_bufnr = (self.preview and self.preview.bufnr ~= nil) and vim.api.nvim_buf_is_valid(self.preview.bufnr) and self.preview.bufnr
+                  or ''
+                preview_win, preview_opts = picker:_create_window(preview_bufnr, popup_opts.preview)
+                if preview_bufnr == '' then
+                  preview_bufnr = a.nvim_win_get_buf(preview_win)
+                end
+                self.preview = Layout.Window {
+                  winid = preview_win,
+                  bufnr = preview_bufnr,
+                  border = make_border(preview_opts.border),
+                }
+                if picker.previewer and picker.previewer.state and picker.previewer.state.winid then
+                  picker.previewer.state.winid = preview_win
+                end
+
+                -- Move prompt and results after preview created
+                vim.defer_fn(function()
+                  popup.move(prompt_win, popup_opts.prompt)
+                  popup.move(results_win, popup_opts.results)
+                end, 0)
+              end
+            elseif preview_win ~= nil then
+              popup.move(prompt_win, popup_opts.prompt)
+              popup.move(results_win, popup_opts.results)
+
+              -- Remove preview after the prompt and results are moved
+              vim.defer_fn(function()
+                utils.win_delete('preview_win', preview_win, true)
+                utils.win_delete('preview_win', self.preview.border.winid, true)
+                self.preview = nil
+              end, 0)
+            else
+              popup.move(prompt_win, popup_opts.prompt)
+              popup.move(results_win, popup_opts.results)
+            end
+          end,
+        }
+
+        return layout
+      end
       require('telescope').setup {
         defaults = {
           path_display = {
             truncate = 0,
             -- shorten = { len = 1, exclude = { 1, 2, -2, -1 } }, -- these were set with the fellowship monorepo in mind
           },
-          borderchars = { '─', '', '─', '', '', '', '', '' },
-          layout_strategy = 'vertical',
+          -- borderchars = { '─', '', '', '', '', '', '', '' },
+          -- layout_strategy = 'vertical',
           layout_config = {
             horizontal = {
-              width = 0.999,
-              height = 0.999,
-              -- NOTE: this was set assuming max width is 110 cols in Ghosty with font-family=BlexMono Nerd Font Mono and font-size=19
-              preview_width = 0.65,
+              width = 0.85,
+              height = 0.85,
+              preview_width = 0.6,
             },
             vertical = {
               width = 0.999,
@@ -376,116 +559,7 @@ require('lazy').setup({
               preview_height = 0.5,
             },
           },
-          -- create_layout = function(picker)
-          --   local function create_window(bufnr, enter, win_opts)
-          --     local winid = vim.api.nvim_open_win(bufnr, enter, win_opts)
-          --     vim.wo[winid].winhighlight = 'Normal:Normal'
-          --     return Layout.Window {
-          --       bufnr = bufnr,
-          --       winid = winid,
-          --     }
-          --   end
-          --
-          --   local function destory_window(window)
-          --     if window then
-          --       if vim.api.nvim_win_is_valid(window.winid) then
-          --         vim.api.nvim_win_close(window.winid, true)
-          --       end
-          --       if vim.api.nvim_buf_is_valid(window.bufnr) then
-          --         vim.api.nvim_buf_delete(window.bufnr, { force = true })
-          --       end
-          --     end
-          --   end
-          --
-          --   local layout = Layout {
-          --     picker = picker,
-          --     mount = function(self)
-          --       -- TODO: find better api for getting size
-          --       local screen_width = vim.api.nvim_get_option 'columns'
-          --       local screen_height = vim.api.nvim_get_option 'lines'
-          --
-          --       local prompt_content_height = 1
-          --       local prompt_height = 1 + prompt_content_height
-          --       local results_content_height = 13
-          --       local results_height = 1 + results_content_height
-          --       local preview_height = screen_height - (results_height + prompt_height)
-          --
-          --       -- TODO: only calculate preview if a preview is passed for this type
-          --       self.preview = create_window(
-          --         vim.api.nvim_create_buf(false, true),
-          --         false, -- don't Enter buffer immediately
-          --         {
-          --           style = 'minimal',
-          --           relative = 'editor',
-          --           width = screen_width,
-          --           height = preview_height,
-          --           row = 0,
-          --           col = 0,
-          --           border = { '', '─', '', '', '', '', '', '' },
-          --           title = 'Preview',
-          --           title_pos = 'center',
-          --         }
-          --       )
-          --       -- CRUCIAL: Tell the picker about this window!
-          --       -- picker.preview_bufnr = self.preview.bufnr
-          --       -- picker.preview_winid = self.preview.winid
-          --
-          --       -- Create a fullscreen results window (minus space for prompt if overlaying)
-          --       self.results = create_window(
-          --         vim.api.nvim_create_buf(false, true), -- New buffer for results
-          --         false, -- Don't enter buffer immediately
-          --         {
-          --           style = 'minimal',
-          --           relative = 'editor',
-          --           width = screen_width,
-          --           height = results_content_height,
-          --           row = preview_height + 1, -- TODO:???
-          --           col = 0,
-          --           border = { '', '─', '', '', '', '', '', '' },
-          --           title = 'Results',
-          --           title_pos = 'center',
-          --         }
-          --       )
-          --       -- CRUCIAL: Tell the picker about this window!
-          --       -- picker.results_bufnr = self.results.bufnr
-          --       -- picker.results_winid = self.results.winid
-          --
-          --       -- Create the prompt window, positioned at the bottom, full width
-          --       -- It will float *on top* of the results window,
-          --       -- which is why we reduced results_height above.
-          --       self.prompt = create_window(
-          --         vim.api.nvim_create_buf(false, true), -- New buffer for prompt
-          --         true, -- Enter buffer immediately
-          --         {
-          --           style = 'minimal',
-          --           relative = 'editor',
-          --           width = screen_width,
-          --           height = prompt_content_height,
-          --           row = preview_height + results_height,
-          --           col = 0,
-          --           border = { '', '─', '', '', '', '', '', '' },
-          --           title = 'Search',
-          --           title_pos = 'center',
-          --         }
-          --       )
-          --       -- CRUCIAL: Tell the picker about this window!
-          --       -- picker.prompt_bufnr = self.prompt.bufnr
-          --       -- picker.prompt_winid = self.prompt.winid
-          --
-          --       -- print('Picker previewer type:', type(picker.previewer))
-          --       -- picker:set_layout_strategy 'vertical'
-          --       -- print(vim.inspect(picker))
-          --     end,
-          --     unmount = function(self)
-          --       destory_window(self.results)
-          --       destory_window(self.preview)
-          --       destory_window(self.prompt)
-          --     end,
-          --     -- update = function(self) end,
-          --   }
-          --
-          --   return layout
-          -- end,
+          create_layout = default_create_layout,
         },
         extensions = {
           -- TODO: what does this do?
@@ -510,17 +584,37 @@ require('lazy').setup({
       end, { desc = '[S]earch [F]iles' })
       vim.keymap.set('n', '<leader>ss', builtin.builtin, { desc = '[S]earch [S]elect Telescope' })
       -- TODO: figure out how to search exactly by case etc (non fuzzy)
-      vim.keymap.set('n', '<leader>sw', builtin.grep_string, { desc = '[S]earch current [W]ord' })
-      vim.keymap.set('n', '<leader>sg', builtin.live_grep, { desc = '[S]earch by [G]rep' })
-      vim.keymap.set('n', '<leader>sd', builtin.diagnostics, { desc = '[S]earch [D]iagnostics' })
       vim.keymap.set('n', '<leader>sr', builtin.resume, { desc = '[S]earch [R]esume' })
-      vim.keymap.set('n', '<leader>s.', builtin.oldfiles, { desc = '[S]earch Recent Files ("." for repeat)' })
       vim.keymap.set('n', '<leader><leader>', function()
         builtin.buffers(require('telescope.themes').get_dropdown {
           previewer = false,
         })
       end, { desc = '[ ] Find existing buffers' })
-      vim.keymap.set('n', '<leader>st', builtin.colorscheme, { desc = '[S]earch [T]hemes' })
+      vim.keymap.set('n', '<leader>st', function()
+        builtin.colorscheme(require('telescope.themes').get_dropdown {
+          previewer = false,
+        })
+      end, { desc = '[S]earch [T]hemes' })
+
+      vim.keymap.set('n', '<leader>sw', function()
+        builtin.grep_string {
+          borderchars = { '─', '', '', '', '', '', '', '' },
+          layout_strategy = 'vertical',
+        }
+      end, { desc = '[S]earch current [W]ord' })
+      vim.keymap.set('n', '<leader>sg', function()
+        builtin.live_grep {
+          borderchars = { '─', '', '', '', '', '', '', '' },
+          layout_strategy = 'vertical',
+        }
+      end, { desc = '[S]earch by [G]rep' })
+      vim.keymap.set('n', '<leader>sd', builtin.diagnostics, { desc = '[S]earch [D]iagnostics' })
+      vim.keymap.set('n', '<leader>s.', function()
+        builtin.oldfiles {
+          borderchars = { '─', '', '', '', '', '', '', '' },
+          layout_strategy = 'vertical',
+        }
+      end, { desc = '[S]earch Recent Files ("." for repeat)' })
 
       -- TODO: add builtin for cached searches/pickers see https://www.reddit.com/r/neovim/comments/phndpv/can_telescope_remember_my_last_search_result/
 
