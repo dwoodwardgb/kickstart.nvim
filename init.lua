@@ -36,7 +36,7 @@ vim.o.relativenumber = true
 vim.o.mouse = 'a'
 
 -- Don't show the mode, since it's already in the status line
-vim.o.showmode = false
+vim.o.showmode = true
 
 -- Sync clipboard between OS and Neovim.
 --  Schedule the setting after `UiEnter` because it can increase startup-time.
@@ -144,6 +144,7 @@ local function find_or_open_netrw()
   vim.cmd 'Explore'
 end
 vim.keymap.set('n', '<leader>b', find_or_open_netrw, { desc = 'Toggle/Open Netrw file explorer' })
+vim.keymap.set('n', '<leader>e', find_or_open_netrw, { desc = 'Toggle/Open Netrw file explorer' })
 
 -- NOTE: Some terminals have colliding keymaps or are not able to send distinct keycodes
 -- vim.keymap.set("n", "<C-S-h>", "<C-w>H", { desc = "Move window to the left" })
@@ -205,8 +206,8 @@ require('lazy').setup({
           vim.cmd.colorscheme 'kanagawa-dragon'
         end,
         set_light_mode = function()
-          vim.cmd.colorscheme 'light-chromeclipse'
-          -- vim.cmd.colorscheme 'default'
+          vim.cmd.colorscheme 'default'
+          vim.cmd.colorscheme 'modus'
         end,
       }
     end,
@@ -388,7 +389,6 @@ require('lazy').setup({
       },
       { 'nvim-telescope/telescope-ui-select.nvim' },
 
-      -- Useful for getting pretty icons, but requires a Nerd Font.
       'kkharji/sqlite.lua',
       'nvim-telescope/telescope-smart-history.nvim',
     },
@@ -1028,7 +1028,9 @@ require('lazy').setup({
       appearance = {
         -- 'mono' (default) for 'Nerd Font Mono' or 'normal' for 'Nerd Font'
         -- Adjusts spacing to ensure icons are aligned
-        nerd_font_variant = 'mono',
+        -- NOTE: commented out because I'm not using icons
+        -- TODO: can I recreate this with unicode stuff?
+        -- nerd_font_variant = 'mono',
       },
 
       completion = {
@@ -1105,8 +1107,10 @@ require('lazy').setup({
       --  You could remove this setup call if you don't like it,
       --  and try some other statusline plugin
       local statusline = require 'mini.statusline'
-      -- set use_icons to true if you have a Nerd Font
-      statusline.setup { use_icons = vim.g.have_nerd_font }
+      -- TODO: setup after we decided how to tweak the elements
+      -- statusline.setup {
+      --   use_icons = vim.g.have_nerd_font,
+      -- }
 
       -- You can configure sections in the statusline by overriding their
       -- default behavior. For example, here we set the section for
