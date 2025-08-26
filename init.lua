@@ -54,10 +54,8 @@ vim.o.undofile = true
 
 -- TODO: consider remapping ; to : for easy commands
 
--- TODO: figure out how to disable for / search, but enable case for grep, ripgrep etc
--- Case-insensitive searching UNLESS \C or one or more capital letters in the search term
--- vim.o.ignorecase = true
--- vim.o.smartcase = true
+vim.o.ignorecase = true
+vim.o.smartcase = true
 
 -- Keep signcolumn on by default
 vim.o.signcolumn = 'yes'
@@ -311,6 +309,7 @@ require('lazy').setup({
   },
 
   { -- Fuzzy Finder (files, lsp, etc)
+    -- TODO: add smart history
     'nvim-telescope/telescope.nvim',
     event = 'VimEnter',
     dependencies = {
@@ -579,7 +578,6 @@ require('lazy').setup({
         })
       end, { desc = '[S]earch [F]iles' })
       vim.keymap.set('n', '<leader>ss', builtin.builtin, { desc = '[S]earch [S]elect Telescope' })
-      -- TODO: figure out how to search exactly by case etc (non fuzzy)
       vim.keymap.set('n', '<leader>r', builtin.resume, { desc = '[R]esume' })
       vim.keymap.set('n', '<leader><leader>', function()
         builtin.buffers(require('telescope.themes').get_dropdown {
@@ -612,8 +610,6 @@ require('lazy').setup({
           layout_strategy = 'vertical',
         }
       end, { desc = '[S]earch Recent Files ("." for repeat)' })
-
-      -- TODO: add builtin for cached searches/pickers see https://www.reddit.com/r/neovim/comments/phndpv/can_telescope_remember_my_last_search_result/
 
       -- Slightly advanced example of overriding default behavior and theme
       vim.keymap.set('n', '<leader>/', function()
