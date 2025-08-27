@@ -189,7 +189,6 @@ require('lazy').setup({
     end,
   },
   -- lights themes
-  { 'shaunsingh/seoul256.nvim' },
   { 'ronisbr/nano-theme.nvim' },
   { 'kepano/flexoki-neovim' },
   { 'rayes0/blossom.vim' },
@@ -232,7 +231,6 @@ require('lazy').setup({
   },
   -- dark themes
   { 'frenzyexists/aquarium-vim' },
-  { 'ficd0/ashen.nvim' },
   { 'xiantang/darcula-dark.nvim' },
   {
     'rebelot/kanagawa.nvim',
@@ -252,6 +250,9 @@ require('lazy').setup({
       require('tokyonight').setup {
         styles = {
           comments = { italic = false }, -- Disable italics in comments
+          functionStyle = { italic = false },
+          keywordStyle = { italic = false },
+          statementStyle = { bold = false },
         },
       }
     end,
@@ -671,19 +672,19 @@ require('lazy').setup({
           -- TODO: default text optionally be that which is selected
         }
       end, { desc = '[F]ind in files' })
-      vim.keymap.set('n', '<leader>sg', function()
+      vim.keymap.set('n', '<leader>ff', function()
         builtin.live_grep {
           borderchars = { '─', '', '', '', '', '', '', '' },
           layout_strategy = 'vertical',
         }
-      end, { desc = '[S]earch [G]rep' })
+      end, { desc = '[F]ind in files [F]uzzy' })
       vim.keymap.set('n', '<leader>sd', builtin.diagnostics, { desc = '[S]earch [D]iagnostics' })
-      vim.keymap.set('n', '<leader>s.', function()
+      vim.keymap.set('n', '<leader>f.', function()
         builtin.oldfiles {
           borderchars = { '─', '', '', '', '', '', '', '' },
           layout_strategy = 'vertical',
         }
-      end, { desc = '[S]earch Recent Files ("." for repeat)' })
+      end, { desc = '[F]ind Recent Files ("." for repeat)' })
 
       -- Slightly advanced example of overriding default behavior and theme
       vim.keymap.set('n', '<leader>/', function()
