@@ -259,6 +259,37 @@ require('lazy').setup({
       }
     end,
   },
+  --[[
+      TODO: check these themes out
+     LIGHT
+     * vylight
+     * perfect
+     * bclear
+     * tony
+     * garden
+     * scheakur
+     * tolerable
+     * beauty256
+     * cascadia
+     * blueshift
+     * jhlight
+     * emacs
+     * default
+     * wwdc17
+     * bubblegum
+     * thegoodluck
+     * louver
+     * leglength2
+     * simplon
+     * hybrid_revers
+     * messy
+     * sienna
+     * basic-light
+     * simplewhite
+     * ligthning
+     DARK
+     * ansiblows
+      ]]
   -- lights themes
   { 'ronisbr/nano-theme.nvim' },
   { 'kepano/flexoki-neovim' },
