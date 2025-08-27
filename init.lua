@@ -7,11 +7,6 @@ If you experience any errors while trying to install kickstart, run `:checkhealt
 
 --]]
 
-vim.o.wrap = false
-vim.opt.fillchars = { eob = ' ' }
-vim.opt.completeopt = { 'menuone', 'noinsert', 'noselect', 'preview', 'popup' }
-vim.opt.breakat = '^I!@*+;,./?'
-
 -- Set <space> as the leader key
 -- See `:help mapleader`
 --  NOTE: Must happen before plugins are loaded (otherwise wrong leader will be used)
@@ -22,50 +17,30 @@ vim.g.maplocalleader = ' '
 vim.g.have_nerd_font = false
 
 -- [[ Setting options ]]
--- See `:help vim.o`
--- NOTE: You can change these options as you wish!
---  For more options, you can see `:help option-list`
+-- NOTE: See `:help vim.o`
+-- For more options, you can see `:help option-list`
+--  TODO: consider remapping ; to : for easy commands
 
--- Make line numbers default
 vim.o.number = true
--- You can also add relative line numbers, to help with jumping.
---  Experiment for yourself to see if you like it!
 vim.o.relativenumber = true
-
 -- Enable mouse mode, can be useful for resizing splits for example!
 vim.o.mouse = 'a'
-
--- Don't show the mode, since it's already in the status line
 vim.o.showmode = true
-
--- Sync clipboard between OS and Neovim.
---  Schedule the setting after `UiEnter` because it can increase startup-time.
---  Remove this option if you want your OS clipboard to remain independent.
---  See `:help 'clipboard'`
-vim.schedule(function()
-  vim.o.clipboard = 'unnamedplus'
-end)
-
--- Enable break indent
+vim.o.wrap = false
+vim.opt.fillchars = { eob = ' ' }
+vim.opt.completeopt = { 'menuone', 'noinsert', 'noselect', 'preview', 'popup' }
+vim.opt.breakat = '^I!@*+;,./?'
 vim.o.breakindent = true
-
--- Save undo history
 vim.o.undofile = true
-
--- TODO: consider remapping ; to : for easy commands
-
 vim.o.ignorecase = true
 vim.o.smartcase = true
-
 -- Keep signcolumn on by default
 vim.o.signcolumn = 'yes'
 -- Decrease mapped sequence wait time
-vim.o.timeoutlen = 250
-
+vim.o.timeoutlen = 450
 -- Configure how new splits should be opened
 vim.o.splitright = true
 vim.o.splitbelow = true
-
 -- Sets how neovim will display certain whitespace characters in the editor.
 --  See `:help 'list'`
 --  and `:help 'listchars'`
@@ -76,22 +51,24 @@ vim.o.splitbelow = true
 --   and `:help lua-options-guide`
 vim.o.list = true
 -- vim.opt.listchars = { tab = '. ', trail = '·', nbsp = '␣' }
-
 -- Preview substitutions live, as you type!
 vim.o.inccommand = 'split'
-
 -- Show which line your cursor is on
 vim.o.cursorline = true
-
--- Minimal number of screen lines to keep above and below the cursor.
 vim.o.scrolloff = 5
-
 -- if performing an operation that would fail due to unsaved changes in the buffer (like `:q`),
 -- instead raise a dialog asking if you wish to save the current file(s)
 -- See `:help 'confirm'`
 vim.o.confirm = true
-
 vim.g.netrw_liststyle = 3
+
+-- Sync clipboard between OS and Neovim.
+--  Schedule the setting after `UiEnter` because it can increase startup-time.
+--  Remove this option if you want your OS clipboard to remain independent.
+--  See `:help 'clipboard'`
+vim.schedule(function()
+  vim.o.clipboard = 'unnamedplus'
+end)
 
 -- [[ Basic Keymaps ]]
 --  See `:help vim.keymap.set()`
@@ -99,11 +76,10 @@ vim.g.netrw_liststyle = 3
 -- Clear highlights on search when pressing <Esc> in normal mode
 --  See `:help hlsearch`
 vim.keymap.set('n', '<Esc>', '<cmd>nohlsearch<CR>')
-
 -- Diagnostic keymaps
 vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostic [Q]uickfix list' })
-
 vim.keymap.set('n', '<leader>tw', '<cmd>set wrap!<CR>', { desc = '[T]oggle line [W]rap' })
+vim.keymap.set('n', '<leader>w', '<cmd>bd<CR>', { desc = 'Close current buffer ([W]indow)' })
 
 -- Exit terminal mode in the builtin terminal with a shortcut that is a bit easier
 -- for people to discover. Otherwise, you normally need to press <C-\><C-n>, which
@@ -777,29 +753,33 @@ require('lazy').setup({
             vim.keymap.set(mode, keys, func, { buffer = event.buf, desc = 'LSP: ' .. desc })
           end
 
+          vim.keymap.set('n', '<Plug>OriginalGd', 'gd', { silent = true })
+
           -- Rename the variable under your cursor.
           --  Most Language Servers support renaming across files, etc.
-          map('grn', vim.lsp.buf.rename, '[R]e[n]ame')
+          map('gn', vim.lsp.buf.rename, '[R]e[n]ame')
 
           -- Execute a code action, usually your cursor needs to be on top of an error
           -- or a suggestion from your LSP for this to activate.
-          map('gra', vim.lsp.buf.code_action, '[G]oto Code [A]ction', { 'n', 'x' })
+          map('ga', vim.lsp.buf.code_action, '[G]oto Code [A]ction', { 'n', 'x' })
 
           -- Find references for the word under your cursor.
-          map('grr', require('telescope.builtin').lsp_references, '[G]oto [R]eferences')
+          map('gr', require('telescope.builtin').lsp_references, '[G]oto [R]eferences')
 
           -- Jump to the implementation of the word under your cursor.
           --  Useful when your language has ways of declaring types without an actual implementation.
-          map('gri', require('telescope.builtin').lsp_implementations, '[G]oto [I]mplementation')
+          map('gi', require('telescope.builtin').lsp_implementations, '[G]oto [I]mplementation')
 
           -- Jump to the definition of the word under your cursor.
           --  This is where a variable was first declared, or where a function is defined, etc.
           --  To jump back, press <C-t>.
-          map('grd', require('telescope.builtin').lsp_definitions, '[G]oto [D]efinition')
+          map('gd', require('telescope.builtin').lsp_definitions, '[G]oto [D]efinition')
 
           -- WARN: This is not Goto Definition, this is Goto Declaration.
           --  For example, in C this would take you to the header.
-          map('grD', vim.lsp.buf.declaration, '[G]oto [D]eclaration')
+          -- TODO: use OriginalGd as a fallback if not supported by LS
+          -- map('gD', vim.lsp.buf.declaration, '[G]oto [D]eclaration')
+          vim.keymap.set('n', 'gD', '<Plug>OriginalGd', { desc = 'Built-in Go to Definition' })
 
           -- Fuzzy find all the symbols in your current document.
           --  Symbols are things like variables, functions, types, etc.
@@ -943,7 +923,7 @@ require('lazy').setup({
     cmd = { 'ConformInfo' },
     keys = {
       {
-        '<leader>f',
+        '<leader>%',
         function()
           require('conform').format { async = true, lsp_format = 'fallback' }
         end,
@@ -976,7 +956,6 @@ require('lazy').setup({
         css = { 'prettier' },
         scss = { 'prettier' },
         nim = { 'nimpretty' },
-        puppet = { 'prettier' },
       },
     },
   },
@@ -1085,54 +1064,53 @@ require('lazy').setup({
     },
   },
 
-  { -- Collection of various small independent plugins/modules
-    'echasnovski/mini.nvim',
-    config = function()
-      -- Better Around/Inside textobjects
-      --
-      -- Examples:
-      --  - va)  - [V]isually select [A]round [)]paren
-      --  - yinq - [Y]ank [I]nside [N]ext [Q]uote
-      --  - ci'  - [C]hange [I]nside [']quote
-      require('mini.ai').setup { n_lines = 500 }
-
-      -- Add/delete/replace surroundings (brackets, quotes, etc.)
-      --
-      -- - saiw) - [S]urround [A]dd [I]nner [W]ord [)]Paren
-      -- - sd'   - [S]urround [D]elete [']quotes
-      -- - sr)'  - [S]urround [R]eplace [)] [']
-      require('mini.surround').setup()
-
-      -- Simple and easy statusline.
-      --  You could remove this setup call if you don't like it,
-      --  and try some other statusline plugin
-      local statusline = require 'mini.statusline'
-      -- TODO: setup after we decided how to tweak the elements
-      -- statusline.setup {
-      --   use_icons = vim.g.have_nerd_font,
-      -- }
-
-      -- You can configure sections in the statusline by overriding their
-      -- default behavior. For example, here we set the section for
-      -- cursor location to LINE:COLUMN
-      ---@diagnostic disable-next-line: duplicate-set-field
-      statusline.section_location = function()
-        return '%2l:%-2v'
-      end
-
-      -- ... and there is more!
-      --  Check out: https://github.com/echasnovski/mini.nvim
-    end,
-  },
+  -- {
+  --   'echasnovski/mini.nvim',
+  --   config = function()
+  --     -- Better Around/Inside textobjects
+  --     --
+  --     -- Examples:
+  --     --  - va)  - [V]isually select [A]round [)]paren
+  --     --  - yinq - [Y]ank [I]nside [N]ext [Q]uote
+  --     --  - ci'  - [C]hange [I]nside [']quote
+  --     require('mini.ai').setup { n_lines = 500 }
+  --
+  --     -- Add/delete/replace surroundings (brackets, quotes, etc.)
+  --     --
+  --     -- - saiw) - [S]urround [A]dd [I]nner [W]ord [)]Paren
+  --     -- - sd'   - [S]urround [D]elete [']quotes
+  --     -- - sr)'  - [S]urround [R]eplace [)] [']
+  --     require('mini.surround').setup()
+  --
+  --     -- Simple and easy statusline.
+  --     --  You could remove this setup call if you don't like it,
+  --     --  and try some other statusline plugin
+  --     local statusline = require 'mini.statusline'
+  --     -- TODO: setup after we decided how to tweak the elements
+  --     -- statusline.setup {
+  --     --   use_icons = vim.g.have_nerd_font,
+  --     -- }
+  --
+  --     -- You can configure sections in the statusline by overriding their
+  --     -- default behavior. For example, here we set the section for
+  --     -- cursor location to LINE:COLUMN
+  --     ---@diagnostic disable-next-line: duplicate-set-field
+  --     statusline.section_location = function()
+  --       return '%2l:%-2v'
+  --     end
+  --
+  --     -- ... and there is more!
+  --     --  Check out: https://github.com/echasnovski/mini.nvim
+  --   end,
+  -- },
   {
     'nvim-treesitter/nvim-treesitter',
     build = ':TSUpdate',
     config = function(opts)
       require('nvim-treesitter.configs').setup(opts)
-      -- TODO: this is broken for some reason
-      -- vim.o.foldmethod = 'expr'
-      -- vim.o.foldexpr = 'v:lua.vim.treesitter.foldexpr()'
-      -- vim.o.foldlevel = 99
+      vim.o.foldmethod = 'expr'
+      vim.o.foldexpr = 'v:lua.vim.treesitter.foldexpr()'
+      vim.o.foldlevel = 99
     end,
     opts = {
       ensure_installed = {
@@ -1222,19 +1200,19 @@ require('lazy').setup({
   },
 })
 
--- Force .pp to be treated as puppet files, not Pascal
+-- Force .pp to be treated as json files, not Pascal
 -- NOTE: used AI, could be wrong
 -- TODO: decide if BufEnter is the best trigger
 vim.api.nvim_create_autocmd('BufEnter', {
   pattern = '*.pp',
   callback = function()
     -- Only set if it's not already set, to avoid infinite loops or unnecessary work
-    if vim.bo.filetype ~= 'puppet' then
-      vim.bo.filetype = 'puppet'
-      -- print("Debug: .pp set to puppet (BufEnter fallback)")
+    if vim.bo.filetype ~= 'json' then
+      vim.bo.filetype = 'json'
+      -- print("Debug: .pp set to json (BufEnter fallback)")
     end
   end,
-  desc = 'Force .pp files to puppet (BufEnter fallback)',
+  desc = 'Force .pp files to json (BufEnter fallback)',
 })
 
 -- Default indent settings, will be overrident by guess-indent and this autocommand
