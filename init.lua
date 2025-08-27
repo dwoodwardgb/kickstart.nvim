@@ -37,7 +37,7 @@ vim.o.smartcase = true
 -- Keep signcolumn on by default
 vim.o.signcolumn = 'yes'
 -- Decrease mapped sequence wait time
-vim.o.timeoutlen = 450
+vim.o.timeoutlen = 300
 -- Configure how new splits should be opened
 vim.o.splitright = true
 vim.o.splitbelow = true
@@ -141,6 +141,77 @@ vim.api.nvim_create_autocmd('TextYankPost', {
     vim.hl.on_yank()
   end,
 })
+
+-- Force .pp to be treated as json files, not Pascal
+-- NOTE: used AI, could be wrong
+-- TODO: decide if BufEnter is the best trigger
+vim.api.nvim_create_autocmd('BufEnter', {
+  pattern = '*.pp',
+  callback = function()
+    -- Only set if it's not already set, to avoid infinite loops or unnecessary work
+    if vim.bo.filetype ~= 'json' then
+      vim.bo.filetype = 'json'
+      -- print("Debug: .pp set to json (BufEnter fallback)")
+    end
+  end,
+  desc = 'Force .pp files to json (BufEnter fallback)',
+})
+
+-- Default indent settings, will be overrident by guess-indent and this autocommand
+vim.o.expandtab = true
+vim.o.shiftwidth = 2
+vim.o.tabstop = 2
+vim.o.softtabstop = 2
+vim.api.nvim_create_autocmd('BufEnter', {
+  pattern = '*',
+  callback = function()
+    -- TODO: set max column/ruler and configure q to wrap comments correctly accordingly
+    if vim.bo.filetype == 'go' then
+      vim.o.tabstop = 4
+    else
+    end
+  end,
+  desc = 'Set language specific settings',
+})
+
+vim.b.disable_autoformat = false
+vim.g.disable_autoformat = false
+vim.api.nvim_create_user_command('NoFormatOnSave', function(args)
+  if args.bang then
+    -- FormatDisable! will disable formatting just for this buffer
+    vim.b.disable_autoformat = true
+  else
+    vim.g.disable_autoformat = true
+  end
+end, {
+  desc = 'Disable autoformat-on-save',
+  bang = true,
+})
+vim.api.nvim_create_user_command('FormatOnSave', function()
+  vim.b.disable_autoformat = false
+  vim.g.disable_autoformat = false
+end, {
+  desc = 'Re-enable autoformat-on-save',
+})
+vim.api.nvim_create_user_command('FormatOnSaveInfo', function()
+  print('global format on save disabled: ' .. tostring(vim.g.disable_autoformat))
+  print('buffer format on save disabled: ' .. tostring(vim.b.disable_autoformat))
+end, {
+  desc = 'Show state of format on save',
+})
+vim.api.nvim_create_user_command('ToggleFormatOnSave', function(args)
+  if args.bang then
+    -- FormatDisable! will disable formatting just for this buffer
+    vim.b.disable_autoformat = not vim.b.disable_autoformat
+  else
+    vim.g.disable_autoformat = not vim.g.disable_autoformat
+  end
+end, {
+  desc = 'Toggle autoformat-on-save',
+  bang = true,
+})
+
+vim.keymap.set('n', '<leader>tf', '<cmd>ToggleFormatOnSave<CR>', { desc = '[T]oggle format on save' })
 
 -- [[ Install `lazy.nvim` plugin manager ]]
 --    See `:help lazy.nvim.txt` or https://github.com/folke/lazy.nvim for more info
@@ -924,7 +995,7 @@ require('lazy').setup({
     cmd = { 'ConformInfo' },
     keys = {
       {
-        '<leader>%',
+        '<leader>=',
         function()
           require('conform').format { async = true, lsp_format = 'fallback' }
         end,
@@ -939,7 +1010,7 @@ require('lazy').setup({
         -- have a well standardized coding style. You can add additional
         -- languages here or re-enable it for the disabled ones.
         local disable_filetypes = { c = true, cpp = true }
-        if disable_filetypes[vim.bo[bufnr].filetype] then
+        if disable_filetypes[vim.bo[bufnr].filetype] or vim.g.disable_autoformat or vim.b[bufnr].disable_autoformat then
           return nil
         else
           return {
@@ -1199,36 +1270,4 @@ require('lazy').setup({
       lazy = '💤 ',
     },
   },
-})
-
--- Force .pp to be treated as json files, not Pascal
--- NOTE: used AI, could be wrong
--- TODO: decide if BufEnter is the best trigger
-vim.api.nvim_create_autocmd('BufEnter', {
-  pattern = '*.pp',
-  callback = function()
-    -- Only set if it's not already set, to avoid infinite loops or unnecessary work
-    if vim.bo.filetype ~= 'json' then
-      vim.bo.filetype = 'json'
-      -- print("Debug: .pp set to json (BufEnter fallback)")
-    end
-  end,
-  desc = 'Force .pp files to json (BufEnter fallback)',
-})
-
--- Default indent settings, will be overrident by guess-indent and this autocommand
-vim.o.expandtab = true
-vim.o.shiftwidth = 2
-vim.o.tabstop = 2
-vim.o.softtabstop = 2
-vim.api.nvim_create_autocmd('BufEnter', {
-  pattern = '*',
-  callback = function()
-    -- TODO: set max column/ruler and configure q to wrap comments correctly accordingly
-    if vim.bo.filetype == 'go' then
-      vim.o.tabstop = 4
-    else
-    end
-  end,
-  desc = 'Set language specific settings',
 })
