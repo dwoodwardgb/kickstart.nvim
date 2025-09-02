@@ -66,6 +66,8 @@ vim.o.wildmenu = true
 vim.opt.wildignore:append { '**/node_modules/**' }
 vim.opt.path:append { '**' }
 -- set grepprg=rg --smart-case --vimgrep
+vim.keymap.set('n', '<leader>p', ':find ', { desc = 'Find files' })
+-- TODO: more fuzzy finding stuff
 
 -- Sync clipboard between OS and Neovim.
 --  Schedule the setting after `UiEnter` because it can increase startup-time.
