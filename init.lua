@@ -524,15 +524,18 @@ require('lazy').setup({
 
           -- Find references for the word under your cursor.
           -- map('gr', require('telescope.builtin').lsp_references, '[G]oto [R]eferences')
+          map('gr', vim.lsp.buf.references, '[G]oto [R]eferences', { 'n' })
 
           -- Jump to the implementation of the word under your cursor.
           --  Useful when your language has ways of declaring types without an actual implementation.
           -- map('gi', require('telescope.builtin').lsp_implementations, '[G]oto [I]mplementation')
+          map('gi', vim.lsp.buf.implementation, '[G]oto [I]mplementation', { 'n' })
 
           -- Jump to the definition of the word under your cursor.
           --  This is where a variable was first declared, or where a function is defined, etc.
           --  To jump back, press <C-t>.
           -- map('gd', require('telescope.builtin').lsp_definitions, '[G]oto [D]efinition')
+          map('gd', vim.lsp.buf.definition, '[G]oto [D]efinition', { 'n' })
 
           -- WARN: This is not Goto Definition, this is Goto Declaration.
           --  For example, in C this would take you to the header.
@@ -553,8 +556,10 @@ require('lazy').setup({
           --  the definition of its *type*, not where it was *defined*.
           -- map('grt', require('telescope.builtin').lsp_type_definitions, '[G]oto [T]ype Definition')
 
-          -- Custom hover on K
-          map('K', vim.lsp.buf.hover, 'Hover')
+          -- show error on K
+          map('K', vim.diagnostic.open_float, 'Help with diagnostic')
+          -- Custom hover on Kk
+          map('Kk', vim.lsp.buf.hover, 'Hover')
 
           -- This function resolves a difference between neovim nightly (version 0.11) and stable (version 0.10)
           ---@param client vim.lsp.Client
