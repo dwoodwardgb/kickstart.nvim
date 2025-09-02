@@ -62,6 +62,11 @@ vim.o.scrolloff = 5
 vim.o.confirm = true
 vim.g.netrw_liststyle = 3
 
+vim.o.wildmenu = true
+vim.opt.wildignore:append { '**/node_modules/**' }
+vim.opt.path:append { '**' }
+-- set grepprg=rg --smart-case --vimgrep
+
 -- Sync clipboard between OS and Neovim.
 --  Schedule the setting after `UiEnter` because it can increase startup-time.
 --  Remove this option if you want your OS clipboard to remain independent.
@@ -117,10 +122,10 @@ local function find_or_open_netrw()
   end
 
   -- If no Netrw buffer was found, open a new one with :Explore
-  vim.cmd 'Explore'
+  vim.cmd 'Explore .'
 end
 vim.keymap.set('n', '<leader>b', find_or_open_netrw, { desc = 'Toggle/Open Netrw file explorer' })
-vim.keymap.set('n', '<leader>e', find_or_open_netrw, { desc = 'Toggle/Open Netrw file explorer' })
+-- vim.keymap.set('n', '<leader>e', find_or_open_netrw, { desc = 'Toggle/Open Netrw file explorer' })
 
 -- NOTE: Some terminals have colliding keymaps or are not able to send distinct keycodes
 -- vim.keymap.set("n", "<C-S-h>", "<C-w>H", { desc = "Move window to the left" })
@@ -213,6 +218,9 @@ end, {
 
 vim.keymap.set('n', '<leader>tf', '<cmd>ToggleFormatOnSave<CR>', { desc = '[T]oggle format on save' })
 
+vim.keymap.set('n', '<leader>]', '<cmd>bnext<CR>', { desc = 'Next buffer ]' })
+vim.keymap.set('n', '<leader>[', '<cmd>bprev<CR>', { desc = 'Prev buffer [' })
+
 -- [[ Install `lazy.nvim` plugin manager ]]
 --    See `:help lazy.nvim.txt` or https://github.com/folke/lazy.nvim for more info
 local lazypath = vim.fn.stdpath 'data' .. '/lazy/lazy.nvim'
@@ -289,7 +297,7 @@ require('lazy').setup({
      * ligthning
      DARK
      * ansiblows
-      ]]
+  --]]
   -- lights themes
   { 'ronisbr/nano-theme.nvim' },
   { 'kepano/flexoki-neovim' },
@@ -447,372 +455,20 @@ require('lazy').setup({
       },
     },
   },
-
-  { -- Fuzzy Finder (files, lsp, etc)
-    'nvim-telescope/telescope.nvim',
-    event = 'VimEnter',
-    dependencies = {
-      'nvim-lua/plenary.nvim',
-      { -- If encountering errors, see telescope-fzf-native README for installation instructions
-        'nvim-telescope/telescope-fzf-native.nvim',
-
-        -- `build` is used to run some command when the plugin is installed/updated.
-        -- This is only run then, not every time Neovim starts up.
-        build = 'make',
-
-        -- `cond` is a condition used to determine whether this plugin should be
-        -- installed and loaded.
-        cond = function()
-          return vim.fn.executable 'make' == 1
-        end,
-      },
-      { 'nvim-telescope/telescope-ui-select.nvim' },
-
-      'kkharji/sqlite.lua',
-      'nvim-telescope/telescope-smart-history.nvim',
-    },
+  {
+    'nvim-mini/mini.tabline',
     config = function()
-      -- The easiest way to use Telescope, is to start by doing something like:
-      --  :Telescope help_tags
-      -- You'll see a list of `help_tags` options and a corresponding preview of the help.
-      --
-      -- Two important keymaps to use while in Telescope are:
-      --  - Insert mode: <c-/>
-      --  - Normal mode: ?
-      --
-      -- This opens a window that shows you all of the keymaps for the current
-      -- Telescope picker. This is really useful to discover what Telescope can
-      -- do as well as how to actually do it!
-      local a = vim.api
-      local popup = require 'plenary.popup'
-      local utils = require 'telescope.utils'
-      local Layout = require 'telescope.pickers.layout'
-      local function default_create_layout(picker)
-        -- HACK: whitelist of prompt titles we use to apply the custom layout tweaks to
-        local is_vertical = (
-          picker.prompt_title == 'Live Grep'
-          or picker.prompt_title:find('Find Word', 1, true) == 1
-          or picker.prompt_title == 'Oldfiles'
-          or picker.prompt_title == 'Live Grep in Open Files'
-        )
-
-        local function make_border(border)
-          if not border then
-            return nil
-          end
-          border.winid = border.win_id
-          return border
-        end
-
-        local layout = Layout {
-          picker = picker,
-          ---@param self TelescopeLayout
-          mount = function(self)
-            local line_count = vim.o.lines - vim.o.cmdheight
-            if vim.o.laststatus ~= 0 then
-              line_count = line_count - 1
-            end
-
-            if is_vertical then
-              -- HACK: use the full window height for vertical layouts
-              line_count = line_count + 3
-            end
-
-            local popup_opts = picker:get_window_options(vim.o.columns, line_count)
-
-            -- HACK: force it to be fullscreen and have only one border between neighbors like border collapse in table css
-            if is_vertical then
-              popup_opts.preview.line = popup_opts.preview.line - 1
-              popup_opts.preview.height = popup_opts.preview.height + 2
-              popup_opts.preview.width = popup_opts.preview.width + 2
-              popup_opts.preview.border = { 0, 0, 0, 0 }
-              popup_opts.results.height = popup_opts.results.height + 1
-              popup_opts.results.width = popup_opts.results.width + 2
-              popup_opts.results.border = { 1, 0, 0, 1 }
-              popup_opts.prompt.line = popup_opts.prompt.line + 1
-              popup_opts.prompt.width = popup_opts.prompt.width + 2
-              popup_opts.prompt.border = { 1, 0, 0, 1 }
-            end
-
-            popup_opts.results.focusable = true
-            popup_opts.results.minheight = popup_opts.results.height
-            popup_opts.results.highlight = 'TelescopeResultsNormal'
-            popup_opts.results.borderhighlight = 'TelescopeResultsBorder'
-            popup_opts.results.titlehighlight = 'TelescopeResultsTitle'
-            popup_opts.prompt.minheight = popup_opts.prompt.height
-            popup_opts.prompt.highlight = 'TelescopePromptNormal'
-            popup_opts.prompt.borderhighlight = 'TelescopePromptBorder'
-            popup_opts.prompt.titlehighlight = 'TelescopePromptTitle'
-
-            if popup_opts.preview then
-              popup_opts.preview.focusable = true
-              popup_opts.preview.minheight = popup_opts.preview.height
-              popup_opts.preview.highlight = 'TelescopePreviewNormal'
-              popup_opts.preview.borderhighlight = 'TelescopePreviewBorder'
-              popup_opts.preview.titlehighlight = 'TelescopePreviewTitle'
-            end
-
-            local results_win, results_opts = picker:_create_window('', popup_opts.results)
-            local results_bufnr = a.nvim_win_get_buf(results_win)
-
-            self.results = Layout.Window {
-              winid = results_win,
-              bufnr = results_bufnr,
-              border = make_border(results_opts.border),
-            }
-
-            if popup_opts.preview then
-              local preview_win, preview_opts = picker:_create_window('', popup_opts.preview)
-              local preview_bufnr = a.nvim_win_get_buf(preview_win)
-
-              self.preview = Layout.Window {
-                winid = preview_win,
-                bufnr = preview_bufnr,
-                border = make_border(preview_opts.border),
-              }
-            end
-
-            local prompt_win, prompt_opts = picker:_create_window('', popup_opts.prompt)
-            local prompt_bufnr = a.nvim_win_get_buf(prompt_win)
-
-            self.prompt = Layout.Window {
-              winid = prompt_win,
-              bufnr = prompt_bufnr,
-              border = make_border(prompt_opts.border),
-            }
-          end,
-          ---@param self TelescopeLayout
-          unmount = function(self)
-            utils.win_delete('results_win', self.results.winid, true, true)
-            if self.preview then
-              utils.win_delete('preview_win', self.preview.winid, true, true)
-            end
-
-            utils.win_delete('prompt_border_win', self.prompt.border.winid, true, true)
-            utils.win_delete('results_border_win', self.results.border.winid, true, true)
-            if self.preview then
-              utils.win_delete('preview_border_win', self.preview.border.winid, true, true)
-            end
-
-            -- we cant use win_delete. We first need to close and then delete the buffer
-            if vim.api.nvim_win_is_valid(self.prompt.winid) then
-              vim.api.nvim_win_close(self.prompt.winid, true)
-            end
-            vim.schedule(function()
-              utils.buf_delete(self.prompt.bufnr)
-            end)
-          end,
-          ---@param self TelescopeLayout
-          update = function(self)
-            local line_count = vim.o.lines - vim.o.cmdheight
-            if vim.o.laststatus ~= 0 then
-              line_count = line_count - 1
-            end
-
-            local popup_opts = picker:get_window_options(vim.o.columns, line_count)
-            -- `popup.nvim` massaging so people don't have to remember minheight shenanigans
-            popup_opts.results.minheight = popup_opts.results.height
-            popup_opts.prompt.minheight = popup_opts.prompt.height
-            if popup_opts.preview then
-              popup_opts.preview.minheight = popup_opts.preview.height
-            end
-
-            local prompt_win = self.prompt.winid
-            local results_win = self.results.winid
-            local preview_win = self.preview and self.preview.winid
-
-            local preview_opts
-            if popup_opts.preview then
-              if preview_win ~= nil then
-                -- Move all popups at the same time
-                popup.move(prompt_win, popup_opts.prompt)
-                popup.move(results_win, popup_opts.results)
-                popup.move(preview_win, popup_opts.preview)
-              else
-                popup_opts.preview.focusable = true
-                popup_opts.preview.highlight = 'TelescopePreviewNormal'
-                popup_opts.preview.borderhighlight = 'TelescopePreviewBorder'
-                popup_opts.preview.titlehighlight = 'TelescopePreviewTitle'
-                local preview_bufnr = (self.preview and self.preview.bufnr ~= nil) and vim.api.nvim_buf_is_valid(self.preview.bufnr) and self.preview.bufnr
-                  or ''
-                preview_win, preview_opts = picker:_create_window(preview_bufnr, popup_opts.preview)
-                if preview_bufnr == '' then
-                  preview_bufnr = a.nvim_win_get_buf(preview_win)
-                end
-                self.preview = Layout.Window {
-                  winid = preview_win,
-                  bufnr = preview_bufnr,
-                  border = make_border(preview_opts.border),
-                }
-                if picker.previewer and picker.previewer.state and picker.previewer.state.winid then
-                  picker.previewer.state.winid = preview_win
-                end
-
-                -- Move prompt and results after preview created
-                vim.defer_fn(function()
-                  popup.move(prompt_win, popup_opts.prompt)
-                  popup.move(results_win, popup_opts.results)
-                end, 0)
-              end
-            elseif preview_win ~= nil then
-              popup.move(prompt_win, popup_opts.prompt)
-              popup.move(results_win, popup_opts.results)
-
-              -- Remove preview after the prompt and results are moved
-              vim.defer_fn(function()
-                utils.win_delete('preview_win', preview_win, true)
-                utils.win_delete('preview_win', self.preview.border.winid, true)
-                self.preview = nil
-              end, 0)
-            else
-              popup.move(prompt_win, popup_opts.prompt)
-              popup.move(results_win, popup_opts.results)
-            end
-          end,
-        }
-
-        return layout
-      end
-
-      require('telescope').setup {
-        defaults = {
-          path_display = {
-            truncate = 0,
-            -- shorten = { len = 1, exclude = { 1, 2, -2, -1 } }, -- these were set with the fellowship monorepo in mind
-          },
-          -- borderchars = { '─', '', '', '', '', '', '', '' },
-          -- layout_strategy = 'vertical',
-          layout_config = {
-            horizontal = {
-              width = 0.85,
-              height = 0.85,
-              preview_width = 0.6,
-            },
-            vertical = {
-              width = 0.999,
-              height = 0.999,
-              preview_height = 0.5,
-            },
-          },
-          create_layout = default_create_layout,
-          history = {
-            path = '~/.local/share/nvim/databases/telescope_history.sqlite3',
-            limit = 100,
-          },
-          mappings = {
-            i = {
-              ['<C-j>'] = require('telescope.actions').cycle_history_next,
-              ['<C-Down>'] = require('telescope.actions').cycle_history_next,
-              ['<M-j>'] = require('telescope.actions').cycle_history_next,
-              ['<M-Down>'] = require('telescope.actions').cycle_history_next,
-
-              ['<C-k>'] = require('telescope.actions').cycle_history_prev,
-              ['<C-Up>'] = require('telescope.actions').cycle_history_prev,
-              ['<M-k>'] = require('telescope.actions').cycle_history_prev,
-              ['<M-Up>'] = require('telescope.actions').cycle_history_prev,
-            },
-            n = {
-              ['<C-j>'] = require('telescope.actions').cycle_history_next,
-              ['<C-Down>'] = require('telescope.actions').cycle_history_next,
-              ['<M-j>'] = require('telescope.actions').cycle_history_next,
-              ['<M-Down>'] = require('telescope.actions').cycle_history_next,
-
-              ['<C-k>'] = require('telescope.actions').cycle_history_prev,
-              ['<C-Up>'] = require('telescope.actions').cycle_history_prev,
-              ['<M-k>'] = require('telescope.actions').cycle_history_prev,
-              ['<M-Up>'] = require('telescope.actions').cycle_history_prev,
-            },
-          },
-        },
-        extensions = {
-          -- TODO: what does this do?
-          ['ui-select'] = {
-            require('telescope.themes').get_dropdown(),
-          },
-        },
+      require('mini.tabline').setup {
+        show_icons = false,
+        -- Function which formats the tab label
+        -- By default surrounds with space and possibly prepends with icon
+        format = nil,
+        -- Where to show tabpage section in case of multiple vim tabpages.
+        -- One of 'left', 'right', 'none'.
+        tabpage_section = 'left',
       }
-
-      -- Enable Telescope extensions if they are installed
-      pcall(require('telescope').load_extension, 'fzf')
-      pcall(require('telescope').load_extension, 'ui-select')
-      pcall(require('telescope').load_extension, 'smart_history')
-
-      -- See `:help telescope.builtin`
-      local builtin = require 'telescope.builtin'
-
-      vim.keymap.set('n', '<leader>sh', builtin.help_tags, { desc = '[S]earch [H]elp' })
-      vim.keymap.set('n', '<leader>sk', builtin.keymaps, { desc = '[S]earch [K]eymaps' })
-      vim.keymap.set('n', '<leader>p', function()
-        builtin.find_files(require('telescope.themes').get_dropdown {
-          previewer = false,
-        })
-      end, { desc = '[S]earch [F]iles' })
-      vim.keymap.set('n', '<leader>ss', builtin.builtin, { desc = '[S]earch [S]elect Telescope' })
-      vim.keymap.set('n', '<leader>r', builtin.resume, { desc = '[R]esume' })
-      vim.keymap.set('n', '<leader><leader>', function()
-        builtin.buffers(require('telescope.themes').get_dropdown {
-          previewer = false,
-        })
-      end, { desc = '[ ] Find existing buffers' })
-      vim.keymap.set('n', '<leader>kt', function()
-        builtin.colorscheme(require('telescope.themes').get_dropdown {
-          previewer = false,
-        })
-      end, { desc = '[S]earch [T]hemes' })
-
-      vim.keymap.set('n', '<leader>sw', function()
-        builtin.grep_string {
-          borderchars = { '─', '', '', '', '', '', '', '' },
-          layout_strategy = 'vertical',
-        }
-      end, { desc = '[S]earch current [W]ord' })
-      vim.keymap.set('n', '<leader>f', function()
-        builtin.live_grep {
-          borderchars = { '─', '', '', '', '', '', '', '' },
-          layout_strategy = 'vertical',
-          word_match = '-w',
-          -- TODO: default text optionally be that which is selected
-        }
-      end, { desc = '[F]ind in files' })
-      vim.keymap.set('n', '<leader>ff', function()
-        builtin.live_grep {
-          borderchars = { '─', '', '', '', '', '', '', '' },
-          layout_strategy = 'vertical',
-        }
-      end, { desc = '[F]ind in files [F]uzzy' })
-      vim.keymap.set('n', '<leader>sd', builtin.diagnostics, { desc = '[S]earch [D]iagnostics' })
-      vim.keymap.set('n', '<leader>f.', function()
-        builtin.oldfiles {
-          borderchars = { '─', '', '', '', '', '', '', '' },
-          layout_strategy = 'vertical',
-        }
-      end, { desc = '[F]ind Recent Files ("." for repeat)' })
-
-      -- Slightly advanced example of overriding default behavior and theme
-      vim.keymap.set('n', '<leader>/', function()
-        builtin.current_buffer_fuzzy_find(require('telescope.themes').get_dropdown {
-          previewer = false,
-        })
-      end, { desc = '[/] Fuzzily search in current buffer' })
-
-      -- It's also possible to pass additional configuration options.
-      --  See `:help telescope.builtin.live_grep()` for information about particular keys
-      vim.keymap.set('n', '<leader>s/', function()
-        builtin.live_grep {
-          grep_open_files = true,
-          prompt_title = 'Live Grep in Open Files',
-          borderchars = { '─', '', '', '', '', '', '', '' },
-          layout_strategy = 'vertical',
-        }
-      end, { desc = '[S]earch [/] in Open Files' })
-
-      -- Shortcut for searching your Neovim configuration files
-      vim.keymap.set('n', '<leader>sn', function()
-        builtin.find_files { cwd = vim.fn.stdpath 'config' }
-      end, { desc = '[S]earch [N]eovim files' })
     end,
   },
-
   -- LSP Plugins
   {
     -- `lazydev` configures Lua LSP for your Neovim config, runtime and plugins
@@ -867,16 +523,16 @@ require('lazy').setup({
           map('ga', vim.lsp.buf.code_action, '[G]oto Code [A]ction', { 'n', 'x' })
 
           -- Find references for the word under your cursor.
-          map('gr', require('telescope.builtin').lsp_references, '[G]oto [R]eferences')
+          -- map('gr', require('telescope.builtin').lsp_references, '[G]oto [R]eferences')
 
           -- Jump to the implementation of the word under your cursor.
           --  Useful when your language has ways of declaring types without an actual implementation.
-          map('gi', require('telescope.builtin').lsp_implementations, '[G]oto [I]mplementation')
+          -- map('gi', require('telescope.builtin').lsp_implementations, '[G]oto [I]mplementation')
 
           -- Jump to the definition of the word under your cursor.
           --  This is where a variable was first declared, or where a function is defined, etc.
           --  To jump back, press <C-t>.
-          map('gd', require('telescope.builtin').lsp_definitions, '[G]oto [D]efinition')
+          -- map('gd', require('telescope.builtin').lsp_definitions, '[G]oto [D]efinition')
 
           -- WARN: This is not Goto Definition, this is Goto Declaration.
           --  For example, in C this would take you to the header.
@@ -886,16 +542,16 @@ require('lazy').setup({
 
           -- Fuzzy find all the symbols in your current document.
           --  Symbols are things like variables, functions, types, etc.
-          map('gO', require('telescope.builtin').lsp_document_symbols, 'Open Document Symbols')
+          -- map('gO', require('telescope.builtin').lsp_document_symbols, 'Open Document Symbols')
 
           -- Fuzzy find all the symbols in your current workspace.
           --  Similar to document symbols, except searches over your entire project.
-          map('gW', require('telescope.builtin').lsp_dynamic_workspace_symbols, 'Open Workspace Symbols')
+          -- map('gW', require('telescope.builtin').lsp_dynamic_workspace_symbols, 'Open Workspace Symbols')
 
           -- Jump to the type of the word under your cursor.
           --  Useful when you're not sure what type a variable is and you want to see
           --  the definition of its *type*, not where it was *defined*.
-          map('grt', require('telescope.builtin').lsp_type_definitions, '[G]oto [T]ype Definition')
+          -- map('grt', require('telescope.builtin').lsp_type_definitions, '[G]oto [T]ype Definition')
 
           -- Custom hover on K
           map('K', vim.lsp.buf.hover, 'Hover')
@@ -1151,61 +807,6 @@ require('lazy').setup({
   -- Highlight todo, notes, etc in comments
   { 'folke/todo-comments.nvim', event = 'VimEnter', dependencies = { 'nvim-lua/plenary.nvim' }, opts = { signs = false } },
 
-  {
-    'prichrd/netrw.nvim',
-    opts = {
-      -- File icons to use when `use_devicons` is false or if
-      -- no icon is found for the given file type.
-      icons = {
-        symlink = '🔗',
-        directory = '📁',
-        file = '📄',
-      },
-      -- Uses mini.icon or nvim-web-devicons if true, otherwise use the file icon specified above
-      use_devicons = vim.g.have_nerd_font,
-      mappings = {},
-    },
-  },
-
-  -- {
-  --   'echasnovski/mini.nvim',
-  --   config = function()
-  --     -- Better Around/Inside textobjects
-  --     --
-  --     -- Examples:
-  --     --  - va)  - [V]isually select [A]round [)]paren
-  --     --  - yinq - [Y]ank [I]nside [N]ext [Q]uote
-  --     --  - ci'  - [C]hange [I]nside [']quote
-  --     require('mini.ai').setup { n_lines = 500 }
-  --
-  --     -- Add/delete/replace surroundings (brackets, quotes, etc.)
-  --     --
-  --     -- - saiw) - [S]urround [A]dd [I]nner [W]ord [)]Paren
-  --     -- - sd'   - [S]urround [D]elete [']quotes
-  --     -- - sr)'  - [S]urround [R]eplace [)] [']
-  --     require('mini.surround').setup()
-  --
-  --     -- Simple and easy statusline.
-  --     --  You could remove this setup call if you don't like it,
-  --     --  and try some other statusline plugin
-  --     local statusline = require 'mini.statusline'
-  --     -- TODO: setup after we decided how to tweak the elements
-  --     -- statusline.setup {
-  --     --   use_icons = vim.g.have_nerd_font,
-  --     -- }
-  --
-  --     -- You can configure sections in the statusline by overriding their
-  --     -- default behavior. For example, here we set the section for
-  --     -- cursor location to LINE:COLUMN
-  --     ---@diagnostic disable-next-line: duplicate-set-field
-  --     statusline.section_location = function()
-  --       return '%2l:%-2v'
-  --     end
-  --
-  --     -- ... and there is more!
-  --     --  Check out: https://github.com/echasnovski/mini.nvim
-  --   end,
-  -- },
   {
     'nvim-treesitter/nvim-treesitter',
     build = ':TSUpdate',
