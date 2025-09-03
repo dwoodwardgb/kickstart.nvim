@@ -1,0 +1,21 @@
+
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# editor config files
+.idea/
+
+# framework update lockfile
+.update-lock
+
+# os files
+*.DS_Store
+
+node_modules
+
+.git
+

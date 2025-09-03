@@ -20,10 +20,8 @@ vim.g.have_nerd_font = false
 -- NOTE: See `:help vim.o`
 -- For more options, you can see `:help option-list`
 --  TODO: consider remapping ; to : for easy commands
-
 vim.o.number = true
 vim.o.relativenumber = true
--- Enable mouse mode, can be useful for resizing splits for example!
 vim.o.mouse = 'a'
 vim.o.showmode = true
 vim.o.wrap = false
@@ -34,10 +32,8 @@ vim.o.breakindent = true
 vim.o.undofile = true
 vim.o.ignorecase = true
 vim.o.smartcase = true
--- Keep signcolumn on by default
-vim.o.signcolumn = 'yes'
--- Decrease mapped sequence wait time
-vim.o.timeoutlen = 300
+vim.o.signcolumn = 'yes' -- Keep signcolumn on by default
+vim.o.timeoutlen = 300 -- Decrease mapped sequence wait time
 -- Configure how new splits should be opened
 vim.o.splitright = true
 vim.o.splitbelow = true
@@ -50,11 +46,9 @@ vim.o.splitbelow = true
 --   See `:help lua-options`
 --   and `:help lua-options-guide`
 vim.o.list = true
--- vim.opt.listchars = { tab = '. ', trail = '·', nbsp = '␣' }
--- Preview substitutions live, as you type!
-vim.o.inccommand = 'split'
--- Show which line your cursor is on
-vim.o.cursorline = true
+vim.opt.listchars = { tab = '. ', trail = '·', nbsp = '␣' }
+vim.o.inccommand = 'split' -- Preview substitutions live, as you type!
+vim.o.cursorline = true -- Show which line your cursor is on
 vim.o.scrolloff = 5
 -- if performing an operation that would fail due to unsaved changes in the buffer (like `:q`),
 -- instead raise a dialog asking if you wish to save the current file(s)
@@ -63,11 +57,19 @@ vim.o.confirm = true
 vim.g.netrw_liststyle = 3
 
 vim.o.wildmenu = true
-vim.opt.wildignore:append { '**/node_modules/**' }
-vim.opt.path:append { '**' }
--- set grepprg=rg --smart-case --vimgrep
+vim.opt.wildmode = { 'noselect' }
+vim.opt.wildignore:append { '**/node_modules/**', '**/.git/**' }
+-- vim.o.grepprg = 'rg --vimgrep --no-heading '
+
+function JankyFuzzyFind(cmdarg, _cmdcomplete)
+  local command = 'fd --color=never --full-path --exclude=".git" --exclude="node_modules" --type file | fzf --filter="' .. cmdarg .. '"'
+  local result = vim.fn.systemlist(command)
+  return result
+end
+if vim.fn.executable 'fd' == 1 and vim.fn.executable 'fzf' == 1 then
+  vim.opt.findfunc = 'v:lua.JankyFuzzyFind'
+end
 vim.keymap.set('n', '<leader>p', ':find ', { desc = 'Find files' })
--- TODO: more fuzzy finding stuff
 
 -- Sync clipboard between OS and Neovim.
 --  Schedule the setting after `UiEnter` because it can increase startup-time.
