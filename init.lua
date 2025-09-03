@@ -482,7 +482,9 @@ require('lazy').setup({
     'nvim-mini/mini.pick',
     config = function()
       require('mini.pick').setup {}
-      vim.keymap.set('n', '<leader>p', ':Pick files<CR>', { remap = false, silent = true, desc = '' })
+      -- TODO: tweak how ripgrep is used so that we don't need .ignore files everywhere
+      vim.keymap.set('n', '<leader>p', ':Pick files<CR>', { remap = false, silent = true, desc = '[P]ick files' })
+      vim.keymap.set('n', '<leader>f', ':Pick grep_live<CR>', { remap = false, silent = true, desc = '[F]ind in files via ripgrep' })
     end,
   },
   -- LSP Plugins
