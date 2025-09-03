@@ -56,22 +56,22 @@ vim.o.scrolloff = 5
 vim.o.confirm = true
 vim.g.netrw_liststyle = 3
 
-vim.o.wildmenu = true
 -- TODO: tinker with all these settings, it's still a bit slow
-vim.o.wildmode = 'noselect:longest,full'
+vim.o.wildmenu = true
+vim.o.wildmode = 'noselect'
 vim.opt.wildignore:append { '**/node_modules/**', '**/.git/**' }
-if vim.fn.executable 'rg' == 1 then
-  function _G.JankyFuzzyFind(cmdarg, _cmdcomplete)
-    local fnames = vim.fn.systemlist 'rg --files --hidden --color=never --glob="!.git"'
-    if #cmdarg == 0 then
-      return fnames
-    else
-      return vim.fn.matchfuzzy(fnames, cmdarg)
-    end
-  end
-  vim.o.findfunc = 'v:lua.JankyFuzzyFind'
-end
-vim.keymap.set('n', '<leader>p', ':find ', { desc = 'Find files' })
+-- if vim.fn.executable 'rg' == 1 then
+--   function _G.JankyFuzzyFind(cmdarg, _cmdcomplete)
+--     local fnames = vim.fn.systemlist 'rg --files --hidden --color=never --glob="!.git"'
+--     if #cmdarg == 0 then
+--       return fnames
+--     else
+--       return vim.fn.matchfuzzy(fnames, cmdarg)
+--     end
+--   end
+--   vim.o.findfunc = 'v:lua.JankyFuzzyFind'
+-- end
+-- vim.keymap.set('n', '<leader>p', ':find ', { desc = 'Find files' })
 
 -- TODO: grep, find and replace, etc
 -- vim.o.grepprg = 'rg --vimgrep --no-heading --hidden --files --color=never --glob="!.git"'
@@ -476,6 +476,13 @@ require('lazy').setup({
         -- One of 'left', 'right', 'none'.
         tabpage_section = 'left',
       }
+    end,
+  },
+  {
+    'nvim-mini/mini.pick',
+    config = function()
+      require('mini.pick').setup {}
+      vim.keymap.set('n', '<leader>p', ':Pick files<CR>', { remap = false, silent = true, desc = '' })
     end,
   },
   -- LSP Plugins
