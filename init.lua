@@ -57,19 +57,24 @@ vim.o.confirm = true
 vim.g.netrw_liststyle = 3
 
 vim.o.wildmenu = true
-vim.opt.wildmode = { 'noselect' }
+-- TODO: tinker with all these settings, it's still a bit slow
+vim.o.wildmode = 'noselect:longest,full'
 vim.opt.wildignore:append { '**/node_modules/**', '**/.git/**' }
--- vim.o.grepprg = 'rg --vimgrep --no-heading '
-
-function JankyFuzzyFind(cmdarg, _cmdcomplete)
-  local command = 'fd --color=never --full-path --exclude=".git" --exclude="node_modules" --type file | fzf --filter="' .. cmdarg .. '"'
-  local result = vim.fn.systemlist(command)
-  return result
-end
-if vim.fn.executable 'fd' == 1 and vim.fn.executable 'fzf' == 1 then
-  vim.opt.findfunc = 'v:lua.JankyFuzzyFind'
+if vim.fn.executable 'rg' == 1 then
+  function _G.JankyFuzzyFind(cmdarg, _cmdcomplete)
+    local fnames = vim.fn.systemlist 'rg --files --hidden --color=never --glob="!.git"'
+    if #cmdarg == 0 then
+      return fnames
+    else
+      return vim.fn.matchfuzzy(fnames, cmdarg)
+    end
+  end
+  vim.o.findfunc = 'v:lua.JankyFuzzyFind'
 end
 vim.keymap.set('n', '<leader>p', ':find ', { desc = 'Find files' })
+
+-- TODO: grep, find and replace, etc
+-- vim.o.grepprg = 'rg --vimgrep --no-heading --hidden --files --color=never --glob="!.git"'
 
 -- Sync clipboard between OS and Neovim.
 --  Schedule the setting after `UiEnter` because it can increase startup-time.
