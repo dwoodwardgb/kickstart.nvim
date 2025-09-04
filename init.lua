@@ -58,6 +58,11 @@ vim.keymap.set('n', '<C-l>', '<C-w><C-l>', { desc = 'Move focus to the right win
 vim.keymap.set('n', '<C-j>', '<C-w><C-j>', { desc = 'Move focus to the lower window' })
 vim.keymap.set('n', '<C-k>', '<C-w><C-k>', { desc = 'Move focus to the upper window' })
 
+-- TODO: undo tree history
+-- TODO: resume last place in file
+-- TODO: yank, paste, delete without poluting the system clipboard
+-- TODO: limit jumplist to file directory and or support jumplist tree or advanced stuff
+
 -- Netrw
 vim.g.netrw_liststyle = 3
 -- vim.g.netrw_browse_split = 4
@@ -184,6 +189,42 @@ if not (vim.uv or vim.loop).fs_stat(lazypath) then
     error('Error cloning lazy.nvim:\n' .. out)
   end
 end
+
+-- COlor stuff
+local function print_colored_text(text, hex_color)
+  local hl_group_name = 'CustomColor_' .. hex_color:gsub('#', '')
+  vim.api.nvim_set_hl(0, hl_group_name, { fg = hex_color })
+  vim.api.nvim_echo({ { text, hl_group_name } }, true, {})
+end
+
+-- For debugging
+vim.api.nvim_create_user_command('DebugTermcolors', function(args)
+  print_colored_text('TWO', vim.g.terminal_color_1)
+  print_colored_text('TWO', vim.g.terminal_color_2)
+  print_colored_text('TWO', vim.g.terminal_color_3)
+  print_colored_text('TWO', vim.g.terminal_color_4)
+  print_colored_text('TWO', vim.g.terminal_color_5)
+  print_colored_text('TWO', vim.g.terminal_color_6)
+  print_colored_text('TWO', vim.g.terminal_color_7)
+  print_colored_text('TWO', vim.g.terminal_color_8)
+  print_colored_text('TWO', vim.g.terminal_color_9)
+  print_colored_text('TWO', vim.g.terminal_color_10)
+  print_colored_text('TWO', vim.g.terminal_color_11)
+  print_colored_text('TWO', vim.g.terminal_color_12)
+  print_colored_text('TWO', vim.g.terminal_color_13)
+  print_colored_text('TWO', vim.g.terminal_color_14)
+  print_colored_text('TWO', vim.g.terminal_color_15)
+end, {
+  desc = '',
+})
+-- TODO: does using an autocommand fix this???
+vim.api.nvim_create_autocmd('ColorScheme', {
+  pattern = '*',
+  callback = function()
+    -- TODO: dark mode
+    vim.g.terminal_color_8 = '#333333'
+  end,
+})
 
 ---@type vim.Option
 local rtp = vim.opt.rtp
