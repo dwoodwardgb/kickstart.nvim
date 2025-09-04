@@ -32,7 +32,7 @@ vim.o.scrolloff = 5
 vim.o.confirm = true
 
 -- TODO: grep, find and replace, etc
--- vim.o.grepprg = 'rg --vimgrep --no-heading --hidden --files --color=never --glob="!.git"'
+-- vim.o.grepprg = 'rg --hidden --color=never'
 
 -- Sync clipboard between OS and Neovim.
 --  Schedule the setting after `UiEnter` because it can increase startup-time.
@@ -458,6 +458,13 @@ require('lazy').setup({
       -- TODO: tweak how ripgrep is used so that we don't need .ignore files everywhere
       vim.keymap.set('n', '<leader>p', ':Pick files<CR>', { remap = false, silent = true, desc = '[P]ick files' })
       vim.keymap.set('n', '<leader>f', ':Pick grep_live<CR>', { remap = false, silent = true, desc = '[F]ind in files via ripgrep' })
+    end,
+  },
+  {
+    'nvim-mini/mini.extra',
+    config = function()
+      require('mini.extra').setup {}
+      vim.keymap.set('n', '<leader>kt', ':Pick colorscheme<CR>', { remap = false, silent = true, desc = 'Preview themes' })
     end,
   },
   -- LSP Plugins
