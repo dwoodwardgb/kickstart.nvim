@@ -169,8 +169,8 @@ end, {
 })
 vim.keymap.set('n', '<leader>tf', '<cmd>ToggleFormatOnSave<CR>', { desc = '[T]oggle format on save' })
 
-vim.keymap.set('n', '<leader>]', '<cmd>bnext<CR>', { desc = 'Next buffer ]' })
-vim.keymap.set('n', '<leader>[', '<cmd>bprev<CR>', { desc = 'Prev buffer [' })
+vim.keymap.set('n', '<M-]>', '<cmd>bnext<CR>', { desc = 'Next buffer ]', silent = true })
+vim.keymap.set('n', '<M-[>', '<cmd>bprev<CR>', { desc = 'Prev buffer [', silent = true })
 
 -- [[ Install `lazy.nvim` plugin manager ]]
 --    See `:help lazy.nvim.txt` or https://github.com/folke/lazy.nvim for more info
@@ -462,6 +462,8 @@ require('lazy').setup({
 
       vim.keymap.set('n', '<leader><leader>', MiniPick.builtin.buffers, { remap = false, silent = true, desc = '[P]ick files' })
       vim.keymap.set('n', '<leader>p', MiniPick.builtin.files, { remap = false, silent = true, desc = '[P]ick files' })
+      vim.keymap.set('n', '<leader>.', MiniExtra.pickers.oldfiles, { remap = false, silent = true, desc = 'Recent files [.] (repeat)' })
+      -- vim.keymap.set('n', '<leader>b', "<cmd>Pick explorer cwd='.'<CR>", { remap = false, silent = true, desc = 'File [E]xplorer' })
       vim.keymap.set('n', '<leader>f', function()
         MiniPick.builtin.grep_live({}, {
           source = { show = show_align_on_nul },
