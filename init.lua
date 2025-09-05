@@ -2,6 +2,10 @@
 vim.g.mapleader = ' '
 vim.g.maplocalleader = ' '
 
+-- TODO:
+-- ctrl+` for term toggle
+-- space bracket for optional bnext
+
 -- NOTE: See `:help vim.o`
 --  TODO: consider remapping ; to : for easy commands
 vim.o.number = true
@@ -170,7 +174,13 @@ end, {
 vim.keymap.set('n', '<leader>tf', '<cmd>ToggleFormatOnSave<CR>', { desc = '[T]oggle format on save' })
 
 vim.keymap.set('n', '<M-]>', '<cmd>bnext<CR>', { desc = 'Next buffer ]', silent = true })
+vim.keymap.set('n', '<leader>]', '<cmd>bnext<CR>', { desc = 'Next buffer ]', silent = true })
 vim.keymap.set('n', '<M-[>', '<cmd>bprev<CR>', { desc = 'Prev buffer [', silent = true })
+vim.keymap.set('n', '<leader>[', '<cmd>bprev<CR>', { desc = 'Prev buffer [', silent = true })
+
+-- TODO: makeprg set to npm run check or wahtever based on project
+
+-- TODO: handle editor closing unexpectedly, maybe globally check for buffer on quit
 
 -- [[ Install `lazy.nvim` plugin manager ]]
 --    See `:help lazy.nvim.txt` or https://github.com/folke/lazy.nvim for more info
