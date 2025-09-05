@@ -2,9 +2,7 @@
 vim.g.mapleader = ' '
 vim.g.maplocalleader = ' '
 
--- [[ Setting options ]]
 -- NOTE: See `:help vim.o`
--- For more options, you can see `:help option-list`
 --  TODO: consider remapping ; to : for easy commands
 vim.o.number = true
 vim.o.relativenumber = true
@@ -26,7 +24,7 @@ vim.o.list = true
 vim.opt.listchars = { tab = '. ', trail = '·', nbsp = '␣' }
 vim.o.inccommand = 'nosplit'
 vim.o.cursorline = true -- Show which line your cursor is on
-vim.o.scrolloff = 2
+vim.o.scrolloff = 1
 -- if performing an operation that would fail due to unsaved changes in the buffer (like `:q`),
 -- instead raise a dialog asking if you wish to save the current file(s)
 vim.o.confirm = true
@@ -71,6 +69,9 @@ function _G.ToggleQuickfix()
 end
 vim.keymap.set('n', '<leader>q', ':lua ToggleQuickfix()<CR>', { noremap = true, silent = true, desc = 'Toggle [Q]uickfix list' })
 vim.keymap.set('n', '<leader>l', '<cmd>lopen<CR>', { desc = 'Open diagnostic [L]ocation list' })
+-- NOTE: here's how to do find and replace w/quickfixlist:
+-- :vimgrep /old_function/j **/*.py
+-- :cfdo %s/old_function/new_function/g | update
 
 -- TODO: undo tree history
 -- TODO: resume last place in file
@@ -79,28 +80,6 @@ vim.keymap.set('n', '<leader>l', '<cmd>lopen<CR>', { desc = 'Open diagnostic [L]
 
 -- Netrw
 vim.g.netrw_liststyle = 3
--- vim.g.netrw_browse_split = 4
-local function find_or_open_netrw()
-  -- Iterate through all existing buffers
-  for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
-    if vim.api.nvim_buf_is_loaded(bufnr) then
-      -- Get the filetype of the buffer
-      local filetype = vim.api.nvim_buf_get_option(bufnr, 'filetype')
-      -- Netrw buffers have a 'netrw' filetype
-      if filetype == 'netrw' then
-        -- Found an existing Netrw buffer.
-        -- Go to the buffer and ensure it's in a window.
-        -- This might open it in the current window or switch to it if visible.
-        vim.cmd('buffer ' .. bufnr)
-        return
-      end
-    end
-  end
-  -- If no Netrw buffer was found, open a new one with :Explore
-  vim.cmd 'Explore .'
-end
-vim.keymap.set('n', '<leader>b', find_or_open_netrw, { desc = 'Toggle/Open Netrw file explorer' })
--- vim.keymap.set('n', '<leader>e', find_or_open_netrw, { desc = 'Toggle/Open Netrw file explorer' })
 
 -- NOTE: Some terminals have colliding keymaps or are not able to send distinct keycodes
 -- vim.keymap.set("n", "<C-S-h>", "<C-w>H", { desc = "Move window to the left" })
@@ -234,8 +213,11 @@ end, {
 vim.api.nvim_create_autocmd('ColorScheme', {
   pattern = '*',
   callback = function()
-    -- TODO: dark mode
-    vim.g.terminal_color_8 = '#333333'
+    if vim.o.background == 'light' then
+      vim.g.terminal_color_8 = '#333333'
+    else
+      vim.g.terminal_color_8 = '#aaaaaa'
+    end
   end,
 })
 
@@ -264,7 +246,7 @@ require('lazy').setup({
   },
   --[[
       TODO: check these themes out
-     LIGHT
+      LIGHT
      * vylight
      * perfect
      * bclear
@@ -466,10 +448,12 @@ require('lazy').setup({
   },
   {
     'nvim-mini/mini.pick',
-    dependencies = { 'nvim-mini/mini.align' },
+    dependencies = { 'nvim-mini/mini.align', 'nvim-mini/mini.extra' },
     config = function()
       require('mini.align').setup {}
       require('mini.pick').setup {}
+      require('mini.extra').setup {}
+      vim.keymap.set('n', '<leader>kt', ':Pick colorschemes<CR>', { remap = false, silent = true, desc = 'Preview themes' })
 
       local sep = package.config:sub(1, 1)
       local function truncate_path(path)
@@ -505,6 +489,7 @@ require('lazy').setup({
         MiniPick.default_show(buf_id, items, query, opts)
       end
 
+      vim.keymap.set('n', '<leader><leader>', MiniPick.builtin.buffers, { remap = false, silent = true, desc = '[P]ick files' })
       vim.keymap.set('n', '<leader>p', MiniPick.builtin.files, { remap = false, silent = true, desc = '[P]ick files' })
       vim.keymap.set('n', '<leader>f', function()
         MiniPick.builtin.grep_live({}, {
@@ -512,13 +497,6 @@ require('lazy').setup({
           window = { config = { width = vim.o.columns } },
         })
       end, { remap = false, silent = true, desc = '[F]ind in files via ripgrep' })
-    end,
-  },
-  {
-    'nvim-mini/mini.extra',
-    config = function()
-      require('mini.extra').setup {}
-      vim.keymap.set('n', '<leader>kt', ':Pick colorscheme<CR>', { remap = false, silent = true, desc = 'Preview themes' })
     end,
   },
   -- LSP Plugins
