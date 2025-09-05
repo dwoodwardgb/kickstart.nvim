@@ -28,7 +28,6 @@ vim.o.scrolloff = 1
 -- if performing an operation that would fail due to unsaved changes in the buffer (like `:q`),
 -- instead raise a dialog asking if you wish to save the current file(s)
 vim.o.confirm = true
-
 -- Sync clipboard between OS and Neovim.
 --  Schedule the setting after `UiEnter` because it can increase startup-time.
 --  Remove this option if you want your OS clipboard to remain independent.
@@ -79,6 +78,7 @@ vim.keymap.set('n', '<leader>l', '<cmd>lopen<CR>', { desc = 'Open diagnostic [L]
 -- TODO: limit jumplist to file directory and or support jumplist tree or advanced stuff
 
 -- Netrw
+-- TODO: toggle it to show hide, possibly as a sidebar
 vim.g.netrw_liststyle = 3
 
 -- NOTE: Some terminals have colliding keymaps or are not able to send distinct keycodes
@@ -192,21 +192,21 @@ end
 
 -- For debugging
 vim.api.nvim_create_user_command('DebugTermcolors', function(args)
-  print_colored_text('TWO', vim.g.terminal_color_1)
-  print_colored_text('TWO', vim.g.terminal_color_2)
-  print_colored_text('TWO', vim.g.terminal_color_3)
-  print_colored_text('TWO', vim.g.terminal_color_4)
-  print_colored_text('TWO', vim.g.terminal_color_5)
-  print_colored_text('TWO', vim.g.terminal_color_6)
-  print_colored_text('TWO', vim.g.terminal_color_7)
-  print_colored_text('TWO', vim.g.terminal_color_8)
-  print_colored_text('TWO', vim.g.terminal_color_9)
-  print_colored_text('TWO', vim.g.terminal_color_10)
-  print_colored_text('TWO', vim.g.terminal_color_11)
-  print_colored_text('TWO', vim.g.terminal_color_12)
-  print_colored_text('TWO', vim.g.terminal_color_13)
-  print_colored_text('TWO', vim.g.terminal_color_14)
-  print_colored_text('TWO', vim.g.terminal_color_15)
+  print_colored_text('SAMPLE', vim.g.terminal_color_1)
+  print_colored_text('SAMPLE', vim.g.terminal_color_2)
+  print_colored_text('SAMPLE', vim.g.terminal_color_3)
+  print_colored_text('SAMPLE', vim.g.terminal_color_4)
+  print_colored_text('SAMPLE', vim.g.terminal_color_5)
+  print_colored_text('SAMPLE', vim.g.terminal_color_6)
+  print_colored_text('SAMPLE', vim.g.terminal_color_7)
+  print_colored_text('SAMPLE', vim.g.terminal_color_8)
+  print_colored_text('SAMPLE', vim.g.terminal_color_9)
+  print_colored_text('SAMPLE', vim.g.terminal_color_10)
+  print_colored_text('SAMPLE', vim.g.terminal_color_11)
+  print_colored_text('SAMPLE', vim.g.terminal_color_12)
+  print_colored_text('SAMPLE', vim.g.terminal_color_13)
+  print_colored_text('SAMPLE', vim.g.terminal_color_14)
+  print_colored_text('SAMPLE', vim.g.terminal_color_15)
 end, {
   desc = '',
 })
@@ -244,37 +244,6 @@ require('lazy').setup({
       }
     end,
   },
-  --[[
-      TODO: check these themes out
-      LIGHT
-     * vylight
-     * perfect
-     * bclear
-     * tony
-     * garden
-     * scheakur
-     * tolerable
-     * beauty256
-     * cascadia
-     * blueshift
-     * jhlight
-     * emacs
-     * default
-     * wwdc17
-     * bubblegum
-     * thegoodluck
-     * louver
-     * leglength2
-     * simplon
-     * hybrid_revers
-     * messy
-     * sienna
-     * basic-light
-     * simplewhite
-     * ligthning
-     DARK
-     * ansiblows
-  --]]
   -- lights themes
   { 'ronisbr/nano-theme.nvim' },
   { 'kepano/flexoki-neovim' },
@@ -316,6 +285,8 @@ require('lazy').setup({
       }
     end,
   },
+  { 'vim-scripts/vylight' },
+  { 'scheakur/vim-scheakur' },
   -- dark themes
   { 'frenzyexists/aquarium-vim' },
   { 'xiantang/darcula-dark.nvim' },
