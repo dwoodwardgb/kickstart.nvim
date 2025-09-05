@@ -26,7 +26,7 @@ vim.o.list = true
 vim.opt.listchars = { tab = '. ', trail = '·', nbsp = '␣' }
 vim.o.inccommand = 'nosplit'
 vim.o.cursorline = true -- Show which line your cursor is on
-vim.o.scrolloff = 5
+vim.o.scrolloff = 2
 -- if performing an operation that would fail due to unsaved changes in the buffer (like `:q`),
 -- instead raise a dialog asking if you wish to save the current file(s)
 vim.o.confirm = true
@@ -41,9 +41,6 @@ end)
 vim.g.have_nerd_font = false
 
 vim.keymap.set('n', '<Esc>', '<cmd>nohlsearch<CR>') -- Clear highlights on search when pressing <Esc> in normal mode
--- vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostic [Q]uickfix list' })
-vim.keymap.set('n', '<leader>q', '<cmd>copen<CR>', { desc = 'Open diagnostic [Q]uickfix list' })
-vim.keymap.set('n', '<leader>l', '<cmd>lopen<CR>', { desc = 'Open diagnostic [L]ocation list' })
 vim.keymap.set('n', '<leader>tw', '<cmd>set wrap!<CR>', { desc = '[T]oggle line [W]rap' })
 vim.keymap.set('n', '<leader>w', '<cmd>bd<CR>', { desc = 'Close current buffer ([W]indow)' })
 -- NOTE: This won't work in all terminal emulators/tmux/etc. Try your own mapping or just use <C-\><C-n> to exit terminal mode
@@ -54,6 +51,26 @@ vim.keymap.set('n', '<C-h>', '<C-w><C-h>', { desc = 'Move focus to the left wind
 vim.keymap.set('n', '<C-l>', '<C-w><C-l>', { desc = 'Move focus to the right window' })
 vim.keymap.set('n', '<C-j>', '<C-w><C-j>', { desc = 'Move focus to the lower window' })
 vim.keymap.set('n', '<C-k>', '<C-w><C-k>', { desc = 'Move focus to the upper window' })
+
+-- Quickfix and Loclist stuff
+-- vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostic [Q]uickfix list' })
+function _G.ToggleQuickfix()
+  local qf_open = false
+  for _, win_info in ipairs(vim.fn.getwininfo()) do
+    if win_info.quickfix == 1 then
+      qf_open = true
+      break
+    end
+  end
+
+  if qf_open then
+    vim.cmd 'cclose'
+  else
+    vim.cmd 'copen'
+  end
+end
+vim.keymap.set('n', '<leader>q', ':lua ToggleQuickfix()<CR>', { noremap = true, silent = true, desc = 'Toggle [Q]uickfix list' })
+vim.keymap.set('n', '<leader>l', '<cmd>lopen<CR>', { desc = 'Open diagnostic [L]ocation list' })
 
 -- TODO: undo tree history
 -- TODO: resume last place in file
@@ -449,51 +466,52 @@ require('lazy').setup({
   },
   {
     'nvim-mini/mini.pick',
+    dependencies = { 'nvim-mini/mini.align' },
     config = function()
+      require('mini.align').setup {}
       require('mini.pick').setup {}
-      -- local sep = package.config:sub(1, 1)
-      -- local function truncate_path(path)
-      --   local parts = vim.split(path, sep)
-      --   if #parts > 2 then
-      --     parts = { parts[1], "…", parts[#parts] }
-      --   end
-      --   return table.concat(parts, sep)
-      -- end
-      --
-      -- local function map_gsub(items, pattern, replacement)
-      --   return vim.tbl_map(function(item)
-      --     item, _ = string.gsub(item, pattern, replacement)
-      --     return item
-      --   end, items)
-      -- end
-      --
-      -- local show_align_on_nul = function(buf_id, items, query, opts)
-      --   -- Shorten the pathname to keep the width of the picker window to something
-      --   -- a bit more reasonable for longer pathnames.
-      --   items = map_gsub(items, "^%Z+", truncate_path)
-      --
-      --   -- Because items is an array of blobs (contains a NUL byte), align_strings
-      --   -- will not work because it expects strings. So, convert the NUL bytes to a
-      --   -- unique (hopefully) separator, then align, and revert back.
-      --   items = map_gsub(items, "%z", "#|#")
-      --   items = MiniAlign.align_strings(items, {
-      --     justify_side = { "left", "right", "right" },
-      --     merge_delimiter = { "", " ", "", " ", "" },
-      --     split_pattern = "#|#",
-      --   })
-      --   items = map_gsub(items, "#|#", "\0")
-      --
-      --   -- Back to the regularly scheduled program :-)
-      --   MiniPick.default_show(buf_id, items, query, opts)
-      -- end
-      -- MiniPick.registry.grep_live_align = function()
-      --   MiniPick.builtin.grep_live({}, {
-      --     source = { show = show_align_on_nul },
-      --     window = { config = { width = math.floor(0.816 * vim.o.columns) } },
-      --   })
-      -- TODO: tweak how ripgrep is used so that we don't need .ignore files everywhere
-      vim.keymap.set('n', '<leader>p', ':Pick files<CR>', { remap = false, silent = true, desc = '[P]ick files' })
-      vim.keymap.set('n', '<leader>f', ':Pick grep_live<CR>', { remap = false, silent = true, desc = '[F]ind in files via ripgrep' })
+
+      local sep = package.config:sub(1, 1)
+      local function truncate_path(path)
+        local parts = vim.split(path, sep)
+        if #parts > 2 then
+          parts = { parts[1], '…', parts[#parts] }
+        end
+        return table.concat(parts, sep)
+      end
+
+      local function map_gsub(items, pattern, replacement)
+        return vim.tbl_map(function(item)
+          item, _ = string.gsub(item, pattern, replacement)
+          return item
+        end, items)
+      end
+
+      local show_align_on_nul = function(buf_id, items, query, opts)
+        -- Shorten the pathname to keep the width of the picker window to something
+        -- a bit more reasonable for longer pathnames.
+        -- items = map_gsub(items, '^%Z+', truncate_path)
+
+        -- Because items is an array of blobs (contains a NUL byte), align_strings
+        -- will not work because it expects strings. So, convert the NUL bytes to a
+        -- unique (hopefully) separator, then align, and revert back.
+        items = map_gsub(items, '%z', '#|#')
+        items = MiniAlign.align_strings(items, {
+          justify_side = { 'left', 'right', 'right' },
+          merge_delimiter = { '', ' ', '', ' ', '' },
+          split_pattern = '#|#',
+        })
+        items = map_gsub(items, '#|#', '\0')
+        MiniPick.default_show(buf_id, items, query, opts)
+      end
+
+      vim.keymap.set('n', '<leader>p', MiniPick.builtin.files, { remap = false, silent = true, desc = '[P]ick files' })
+      vim.keymap.set('n', '<leader>f', function()
+        MiniPick.builtin.grep_live({}, {
+          source = { show = show_align_on_nul },
+          window = { config = { width = vim.o.columns } },
+        })
+      end, { remap = false, silent = true, desc = '[F]ind in files via ripgrep' })
     end,
   },
   {
