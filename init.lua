@@ -1,3 +1,6 @@
+vim.g.loaded_netrw = 1
+vim.g.loaded_netrwPlugin = 1
+
 --  NOTE: Must happen before plugins are loaded (otherwise wrong leader will be used)
 vim.g.mapleader = ' '
 vim.g.maplocalleader = ' '
@@ -31,9 +34,13 @@ vim.o.scrolloff = 1
 -- instead raise a dialog asking if you wish to save the current file(s)
 vim.o.confirm = true
 
+-- vim.o.colorcolumn = '+1'
+-- vim.o.textwidth = 110
+
+-- TODO: this is completely broken
 vim.o.foldmethod = 'expr'
 vim.o.foldexpr = 'v:lua.vim.treesitter.foldexpr()'
-vim.o.foldlevel = 99
+vim.o.foldlevel = 5
 -- Sync clipboard between OS and Neovim.
 --  Schedule the setting after `UiEnter` because it can increase startup-time.
 --  Remove this option if you want your OS clipboard to remain independent.
@@ -223,7 +230,7 @@ if not (vim.uv or vim.loop).fs_stat(lazypath) then
   end
 end
 
--- COlor stuff
+-- Color stuff
 local function print_colored_text(text, hex_color)
   local hl_group_name = 'CustomColor_' .. hex_color:gsub('#', '')
   vim.api.nvim_set_hl(0, hl_group_name, { fg = hex_color })
@@ -370,6 +377,292 @@ require('lazy').setup({
       },
     },
   },
+  {
+    'nvim-tree/nvim-tree.lua',
+    config = function()
+      require('nvim-tree').setup {
+        on_attach = function(buf_number)
+          local api = require 'nvim-tree.api'
+          api.config.mappings.default_on_attach(buf_number)
+        end,
+        hijack_cursor = false,
+        auto_reload_on_write = true,
+        disable_netrw = false,
+        hijack_netrw = true,
+        hijack_unnamed_buffer_when_opening = true,
+        root_dirs = {},
+        prefer_startup_root = true,
+        sync_root_with_cwd = false,
+        reload_on_bufenter = false,
+        respect_buf_cwd = false,
+        select_prompts = false,
+        sort = {
+          sorter = 'name',
+          folders_first = true,
+          files_first = false,
+        },
+        view = {
+          centralize_selection = false,
+          cursorline = true,
+          cursorlineopt = 'both',
+          debounce_delay = 15,
+          side = 'right',
+          preserve_window_proportions = true,
+          number = false,
+          relativenumber = false,
+          signcolumn = 'yes',
+          width = 50,
+          float = {
+            enable = false,
+            quit_on_focus_loss = true,
+            open_win_config = {
+              relative = 'editor',
+              border = 'rounded',
+              width = 30,
+              height = 30,
+              row = 1,
+              col = 1,
+            },
+          },
+        },
+        renderer = {
+          add_trailing = false,
+          group_empty = false,
+          full_name = false,
+          root_folder_label = ':~:s?$?/..?',
+          indent_width = 2,
+          special_files = { 'Cargo.toml', 'Makefile', 'makefile', 'README.md', 'readme.md' },
+          hidden_display = 'none',
+          symlink_destination = true,
+          decorators = { 'Git', 'Open', 'Hidden', 'Modified', 'Bookmark', 'Diagnostics', 'Copied', 'Cut' },
+          highlight_git = 'none',
+          highlight_diagnostics = 'none',
+          highlight_opened_files = 'none',
+          highlight_modified = 'none',
+          highlight_hidden = 'none',
+          highlight_bookmarks = 'none',
+          highlight_clipboard = 'name',
+          indent_markers = {
+            enable = true,
+            inline_arrows = true,
+            icons = {
+              corner = '└',
+              edge = '│',
+              item = '│',
+              bottom = '─',
+              none = ' ',
+            },
+          },
+          icons = {
+            web_devicons = {
+              file = {
+                enable = true,
+                color = true,
+              },
+              folder = {
+                enable = false,
+                color = true,
+              },
+            },
+            git_placement = 'before',
+            modified_placement = 'after',
+            hidden_placement = 'after',
+            diagnostics_placement = 'signcolumn',
+            bookmarks_placement = 'signcolumn',
+            padding = {
+              icon = ' ',
+              folder_arrow = ' ',
+            },
+            symlink_arrow = ' ➛ ',
+            show = {
+              file = true,
+              folder = true,
+              folder_arrow = true,
+              git = true,
+              modified = true,
+              hidden = false,
+              diagnostics = true,
+              bookmarks = true,
+            },
+            glyphs = {
+              default = '',
+              symlink = '',
+              bookmark = '󰆤',
+              modified = '●',
+              hidden = '󰜌',
+              folder = {
+                arrow_closed = '',
+                arrow_open = '',
+                default = '',
+                open = '',
+                empty = '',
+                empty_open = '',
+                symlink = '',
+                symlink_open = '',
+              },
+              git = {
+                unstaged = '✗',
+                staged = '✓',
+                unmerged = '',
+                renamed = '➜',
+                untracked = '★',
+                deleted = '',
+                ignored = '◌',
+              },
+            },
+          },
+        },
+        hijack_directories = {
+          enable = true,
+          auto_open = true,
+        },
+        update_focused_file = {
+          enable = true,
+          update_root = {
+            enable = false,
+            ignore_list = {},
+          },
+          exclude = false,
+        },
+        system_open = {
+          cmd = '',
+          args = {},
+        },
+        git = {
+          enable = true,
+          show_on_dirs = true,
+          show_on_open_dirs = true,
+          disable_for_dirs = {},
+          timeout = 400,
+          cygwin_support = false,
+        },
+        diagnostics = {
+          enable = false,
+          show_on_dirs = false,
+          show_on_open_dirs = true,
+          debounce_delay = 500,
+          severity = {
+            min = vim.diagnostic.severity.HINT,
+            max = vim.diagnostic.severity.ERROR,
+          },
+          icons = {
+            hint = '',
+            info = '',
+            warning = '',
+            error = '',
+          },
+          diagnostic_opts = false,
+        },
+        modified = {
+          enable = false,
+          show_on_dirs = true,
+          show_on_open_dirs = true,
+        },
+        filters = {
+          enable = false,
+          git_ignored = true,
+          dotfiles = false,
+          git_clean = false,
+          no_buffer = false,
+          no_bookmark = false,
+          custom = {},
+          exclude = {},
+        },
+        live_filter = {
+          prefix = '[FILTER]: ',
+          always_show_folders = true,
+        },
+        filesystem_watchers = {
+          enable = true,
+          debounce_delay = 50,
+          ignore_dirs = {
+            '/.ccls-cache',
+            '/build',
+            '/node_modules',
+            '/target',
+          },
+        },
+        actions = {
+          use_system_clipboard = true,
+          change_dir = {
+            enable = true,
+            global = false,
+            restrict_above_cwd = false,
+          },
+          expand_all = {
+            max_folder_discovery = 300,
+            exclude = {},
+          },
+          file_popup = {
+            open_win_config = {
+              col = 1,
+              row = 1,
+              relative = 'cursor',
+              border = 'shadow',
+              style = 'minimal',
+            },
+          },
+          open_file = {
+            quit_on_open = false,
+            eject = true,
+            resize_window = true,
+            relative_path = true,
+            window_picker = {
+              enable = true,
+              picker = 'default',
+              chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890',
+              exclude = {
+                filetype = { 'notify', 'packer', 'qf', 'diff', 'fugitive', 'fugitiveblame' },
+                buftype = { 'nofile', 'terminal', 'help' },
+              },
+            },
+          },
+          remove_file = {
+            close_window = true,
+          },
+        },
+        trash = {
+          cmd = 'gio trash',
+        },
+        tab = {
+          sync = {
+            open = false,
+            close = false,
+            ignore = {},
+          },
+        },
+        notify = {
+          threshold = vim.log.levels.INFO,
+          absolute_path = true,
+        },
+        help = {
+          sort_by = 'key',
+        },
+        ui = {
+          confirm = {
+            remove = true,
+            trash = true,
+            default_yes = false,
+          },
+        },
+        experimental = {},
+        log = {
+          enable = false,
+          truncate = false,
+          types = {
+            all = false,
+            config = false,
+            copy_paste = false,
+            dev = false,
+            diagnostics = false,
+            git = false,
+            profile = false,
+            watcher = false,
+          },
+        },
+      }
+    end,
+  },
 
   -- NOTE: Plugins can also be configured to run Lua code when they are loaded.
   -- This is often very useful to both group configuration, as well as handle
@@ -458,58 +751,107 @@ require('lazy').setup({
     end,
   },
   {
-    'nvim-mini/mini.pick',
-    dependencies = { 'nvim-mini/mini.align', 'nvim-mini/mini.extra' },
+    'nvim-telescope/telescope.nvim',
+    event = 'VimEnter',
+    dependencies = {
+      'nvim-lua/plenary.nvim',
+      { -- If encountering errors, see telescope-fzf-native README for installation instructions
+        'nvim-telescope/telescope-fzf-native.nvim',
+
+        -- `build` is used to run some command when the plugin is installed/updated.
+        -- This is only run then, not every time Neovim starts up.
+        build = 'make',
+
+        -- `cond` is a condition used to determine whether this plugin should be
+        -- installed and loaded.
+        cond = function()
+          return vim.fn.executable 'make' == 1
+        end,
+      },
+      { 'nvim-telescope/telescope-ui-select.nvim' },
+
+      -- Useful for getting pretty icons, but requires a Nerd Font.
+      { 'nvim-tree/nvim-web-devicons', enabled = vim.g.have_nerd_font },
+    },
     config = function()
-      require('mini.align').setup {}
-      require('mini.pick').setup {}
-      require('mini.extra').setup {}
-      vim.keymap.set('n', '<leader>kt', ':Pick colorschemes<CR>', { remap = false, silent = true, desc = 'Preview themes' })
+      -- Telescope is a fuzzy finder that comes with a lot of different things that
+      -- it can fuzzy find! It's more than just a "file finder", it can search
+      -- many different aspects of Neovim, your workspace, LSP, and more!
+      --
+      -- The easiest way to use Telescope, is to start by doing something like:
+      --  :Telescope help_tags
+      --
+      -- After running this command, a window will open up and you're able to
+      -- type in the prompt window. You'll see a list of `help_tags` options and
+      -- a corresponding preview of the help.
+      --
+      -- Two important keymaps to use while in Telescope are:
+      --  - Insert mode: <c-/>
+      --  - Normal mode: ?
+      --
+      -- This opens a window that shows you all of the keymaps for the current
+      -- Telescope picker. This is really useful to discover what Telescope can
+      -- do as well as how to actually do it!
 
-      local sep = package.config:sub(1, 1)
-      local function truncate_path(path)
-        local parts = vim.split(path, sep)
-        if #parts > 2 then
-          parts = { parts[1], '…', parts[#parts] }
-        end
-        return table.concat(parts, sep)
-      end
+      -- [[ Configure Telescope ]]
+      -- See `:help telescope` and `:help telescope.setup()`
+      require('telescope').setup {
+        -- You can put your default mappings / updates / etc. in here
+        --  All the info you're looking for is in `:help telescope.setup()`
+        --
+        -- defaults = {
+        --   mappings = {
+        --     i = { ['<c-enter>'] = 'to_fuzzy_refine' },
+        --   },
+        -- },
+        -- pickers = {}
+        extensions = {
+          ['ui-select'] = {
+            require('telescope.themes').get_dropdown(),
+          },
+        },
+      }
 
-      local function map_gsub(items, pattern, replacement)
-        return vim.tbl_map(function(item)
-          item, _ = string.gsub(item, pattern, replacement)
-          return item
-        end, items)
-      end
+      -- Enable Telescope extensions if they are installed
+      pcall(require('telescope').load_extension, 'fzf')
+      pcall(require('telescope').load_extension, 'ui-select')
 
-      local show_align_on_nul = function(buf_id, items, query, opts)
-        -- Shorten the pathname to keep the width of the picker window to something
-        -- a bit more reasonable for longer pathnames.
-        -- items = map_gsub(items, '^%Z+', truncate_path)
+      -- See `:help telescope.builtin`
+      local builtin = require 'telescope.builtin'
+      vim.keymap.set('n', '<leader>sh', builtin.help_tags, { desc = '[S]earch [H]elp' })
+      vim.keymap.set('n', '<leader>sk', builtin.keymaps, { desc = '[S]earch [K]eymaps' })
+      vim.keymap.set('n', '<leader>p', builtin.find_files, { desc = '[S]earch [F]iles' })
+      vim.keymap.set('n', '<leader>ss', builtin.builtin, { desc = '[S]earch [S]elect Telescope' })
+      vim.keymap.set('n', '<leader>sw', builtin.grep_string, { desc = '[S]earch current [W]ord' })
+      vim.keymap.set('n', '<leader>f', builtin.live_grep, { desc = '[F]ind in files' })
+      vim.keymap.set('n', '<leader>sd', builtin.diagnostics, { desc = '[S]earch [D]iagnostics' })
+      vim.keymap.set('n', '<leader>sr', builtin.resume, { desc = '[S]earch [R]esume' })
+      vim.keymap.set('n', '<leader>s.', builtin.oldfiles, { desc = '[S]earch Recent Files ("." for repeat)' })
+      vim.keymap.set('n', '<leader><leader>', builtin.buffers, { desc = '[ ] Find existing buffers' })
+      vim.keymap.set('n', '<leader>kt', builtin.colorscheme, { desc = 'Search themes' })
 
-        -- Because items is an array of blobs (contains a NUL byte), align_strings
-        -- will not work because it expects strings. So, convert the NUL bytes to a
-        -- unique (hopefully) separator, then align, and revert back.
-        items = map_gsub(items, '%z', '#|#')
-        items = MiniAlign.align_strings(items, {
-          justify_side = { 'left', 'right', 'right' },
-          merge_delimiter = { '', ' ', '', ' ', '' },
-          split_pattern = '#|#',
+      -- Slightly advanced example of overriding default behavior and theme
+      vim.keymap.set('n', '<leader>/', function()
+        -- You can pass additional configuration to Telescope to change the theme, layout, etc.
+        builtin.current_buffer_fuzzy_find(require('telescope.themes').get_dropdown {
+          winblend = 10,
+          previewer = false,
         })
-        items = map_gsub(items, '#|#', '\0')
-        MiniPick.default_show(buf_id, items, query, opts)
-      end
+      end, { desc = '[/] Fuzzily search in current buffer' })
 
-      vim.keymap.set('n', '<leader><leader>', MiniPick.builtin.buffers, { remap = false, silent = true, desc = '[P]ick files' })
-      vim.keymap.set('n', '<leader>p', MiniPick.builtin.files, { remap = false, silent = true, desc = '[P]ick files' })
-      vim.keymap.set('n', '<leader>.', MiniExtra.pickers.oldfiles, { remap = false, silent = true, desc = 'Recent files [.] (repeat)' })
-      -- vim.keymap.set('n', '<leader>b', "<cmd>Pick explorer cwd='.'<CR>", { remap = false, silent = true, desc = 'File [E]xplorer' })
-      vim.keymap.set('n', '<leader>f', function()
-        MiniPick.builtin.grep_live({}, {
-          source = { show = show_align_on_nul },
-          window = { config = { width = vim.o.columns } },
-        })
-      end, { remap = false, silent = true, desc = '[F]ind in files via ripgrep' })
+      -- It's also possible to pass additional configuration options.
+      --  See `:help telescope.builtin.live_grep()` for information about particular keys
+      vim.keymap.set('n', '<leader>s/', function()
+        builtin.live_grep {
+          grep_open_files = true,
+          prompt_title = 'Live Grep in Open Files',
+        }
+      end, { desc = '[S]earch [/] in Open Files' })
+
+      -- Shortcut for searching your Neovim configuration files
+      vim.keymap.set('n', '<leader>sn', function()
+        builtin.find_files { cwd = vim.fn.stdpath 'config' }
+      end, { desc = '[S]earch [N]eovim files' })
     end,
   },
   -- LSP Plugins
@@ -555,6 +897,14 @@ require('lazy').setup({
           --  Useful when your language has ways of declaring types without an actual implementation.
           -- map('gi', require('telescope.builtin').lsp_implementations, '[G]oto [I]mplementation')
           -- map('gi', vim.lsp.buf.implementation, '[G]oto [I]mplementation', { 'n' })
+
+          vim.keymap.set('n', 'grr', require('telescope.builtin').lsp_references, { desc = '[G]oto [R]eferences' })
+          vim.keymap.set('n', 'gri', require('telescope.builtin').lsp_implementations, { desc = '[G]oto [I]mplementation' })
+          vim.keymap.set('n', 'grd', require('telescope.builtin').lsp_definitions, { desc = '[G]oto [D]efinition' })
+          vim.keymap.set('n', 'grD', vim.lsp.buf.declaration, { desc = '[G]oto [D]eclaration' })
+          vim.keymap.set('n', 'gO', require('telescope.builtin').lsp_document_symbols, { desc = 'Open Document Symbols' })
+          vim.keymap.set('n', 'gW', require('telescope.builtin').lsp_dynamic_workspace_symbols, { desc = 'Open Workspace Symbols' })
+          vim.keymap.set('n', 'grt', require('telescope.builtin').lsp_type_definitions, { desc = '[G]oto [T]ype Definition' })
 
           -- Jump to the definition of the word under your cursor.
           --  This is where a variable was first declared, or where a function is defined, etc.
@@ -617,7 +967,7 @@ require('lazy').setup({
             end, { desc = '[T]oggle Inlay [H]ints' })
           end
 
-          if client and client.name == 'ts_ls' then
+          if client and client.name == 'ts_ls' or client.name == 'vtsls' then
             vim.o.makeprg = './node_modules/.bin/tsc --pretty false --noEmit'
             vim.opt.errorformat = '%f(%l\\,%c): %t%*[^:]:%m'
           end
@@ -670,10 +1020,16 @@ require('lazy').setup({
           },
         },
       })
+      vim.lsp.config('jdtls', {
+        settings = {
+          java = {},
+        },
+      })
       local servers_enabled = {
         'lua_ls',
-        'ts_ls',
+        'vtsls',
         'gopls',
+        'jdtls',
       }
       for _, ls in ipairs(servers_enabled) do
         vim.lsp.enable(ls)
@@ -711,7 +1067,6 @@ require('lazy').setup({
         },
         opts = {},
       },
-      'folke/lazydev.nvim',
     },
     --- @module 'blink.cmp'
     --- @type blink.cmp.Config
@@ -819,6 +1174,49 @@ require('lazy').setup({
 
   -- Highlight todo, notes, etc in comments
   { 'folke/todo-comments.nvim', event = 'VimEnter', dependencies = { 'nvim-lua/plenary.nvim' }, opts = { signs = false } },
+
+  { -- Highlight, edit, and navigate code
+    'nvim-treesitter/nvim-treesitter',
+    build = ':TSUpdate',
+    main = 'nvim-treesitter.configs', -- Sets main module to use for opts
+    -- [[ Configure Treesitter ]] See `:help nvim-treesitter`
+    opts = {
+      ensure_installed = {
+        'bash',
+        'c',
+        'diff',
+        'html',
+        'lua',
+        'luadoc',
+        'markdown',
+        'markdown_inline',
+        'query',
+        'vim',
+        'vimdoc',
+        'nim',
+        'json',
+        'javascript',
+        'typescript',
+        'java',
+      },
+      -- Autoinstall languages that are not installed
+      auto_install = true,
+      highlight = {
+        enable = true,
+        -- Some languages depend on vim's regex highlighting system (such as Ruby) for indent rules.
+        --  If you are experiencing weird indenting issues, add the language to
+        --  the list of additional_vim_regex_highlighting and disabled languages for indent.
+        additional_vim_regex_highlighting = { 'ruby' },
+      },
+      indent = { enable = true, disable = { 'ruby' } },
+    },
+    -- There are additional nvim-treesitter modules that you can use to interact
+    -- with nvim-treesitter. You should go explore a few and see what interests you:
+    --
+    --    - Incremental selection: Included, see `:help nvim-treesitter-incremental-selection-mod`
+    --    - Show your current context: https://github.com/nvim-treesitter/nvim-treesitter-context
+    --    - Treesitter + textobjects: https://github.com/nvim-treesitter/nvim-treesitter-textobjects
+  },
 
   -- The following comments only work if you have downloaded the kickstart repo, not just copy pasted the
   -- init.lua. If you want these files, they are in the repository, so you can just download them and
