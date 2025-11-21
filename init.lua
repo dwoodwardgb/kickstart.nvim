@@ -268,11 +268,15 @@ vim.api.nvim_create_autocmd('ColorScheme', {
   end,
 })
 
+pcall(function()
+  vim.cmd.colorscheme 'modus'
+end, nil)
+
 ---@type vim.Option
 local rtp = vim.opt.rtp
 rtp:prepend(lazypath)
 require('lazy').setup({
-  install = { colorscheme = { 'default' } },
+  install = { colorscheme = 'default' },
   -- Auto theme detection plugin
   {
     -- NOTE: you can use dark-notify if you're only tragetting MacOS. Using this instead because this config is used on Linux sometimes
@@ -285,7 +289,7 @@ require('lazy').setup({
           vim.cmd.colorscheme 'kanagawa-dragon'
         end,
         set_light_mode = function()
-          vim.cmd.colorscheme 'default'
+          -- vim.cmd.colorscheme 'default'
           -- vim.cmd.colorscheme 'lucius'
           vim.cmd.colorscheme 'modus'
         end,
@@ -398,7 +402,8 @@ require('lazy').setup({
     },
     lazy = false, -- neo-tree will lazily load itself
     config = function()
-      vim.keymap.set('n', '<leader>e', '<Cmd>Neotree<CR>')
+      vim.keymap.set('n', '<leader>e', '<Cmd>Neotree reveal<CR>')
+      vim.keymap.set('n', '<leader>b', '<Cmd>Neotree toggle<CR>')
       require('neo-tree').setup {
         close_if_last_window = false, -- Close Neo-tree if it is the last window left in the tab
         popup_border_style = '', -- or "" to use 'winborder' on Neovim v0.11+
@@ -561,11 +566,11 @@ require('lazy').setup({
             ['A'] = 'add_directory', -- also accepts the optional config.show_path option like "add". this also supports BASH style brace expansion.
             ['d'] = 'delete',
             ['r'] = 'rename',
-            ['b'] = 'rename_basename',
+            -- ['b'] = 'rename_basename', -- conflicting with <leader>b to toggle open/closed
             ['y'] = 'copy_to_clipboard',
             ['x'] = 'cut_to_clipboard',
             ['p'] = 'paste_from_clipboard',
-            ['<C-r>'] = 'clear_clipboard',
+            -- ['<C-r>'] = 'clear_clipboard', -- a warning is saying this is invalid
             ['c'] = 'copy', -- takes text input for destination, also accepts the optional config.show_path option like "add":
             -- ["c"] = {
             --  "copy",
@@ -822,7 +827,7 @@ require('lazy').setup({
       },
 
       triggers = {
-        { '<leader>', mode = { 'n', 'v' } },
+        -- { '<leader>', mode = { 'n', 'v' } },
         { 'g', mode = { 'n', 'v' } },
         { 'z', mode = { 'n', 'v' } },
         { 'h', mode = { 'n', 'v' } },
@@ -836,15 +841,15 @@ require('lazy').setup({
   {
     'nvim-mini/mini.tabline',
     config = function()
-      require('mini.tabline').setup {
-        show_icons = false,
-        -- Function which formats the tab label
-        -- By default surrounds with space and possibly prepends with icon
-        format = nil,
-        -- Where to show tabpage section in case of multiple vim tabpages.
-        -- One of 'left', 'right', 'none'.
-        tabpage_section = 'left',
-      }
+      -- require('mini.tabline').setup {
+      --   show_icons = false,
+      --   -- Function which formats the tab label
+      --   -- By default surrounds with space and possibly prepends with icon
+      --   format = nil,
+      --   -- Where to show tabpage section in case of multiple vim tabpages.
+      --   -- One of 'left', 'right', 'none'.
+      --   tabpage_section = 'left',
+      -- }
     end,
   },
   {
@@ -1088,7 +1093,7 @@ require('lazy').setup({
             end, { desc = '[T]oggle Inlay [H]ints' })
           end
 
-          if client and client.name == 'ts_ls' or client.name == 'vtsls' then
+          if (client and client.name == 'ts_ls') or (client and client.name == 'vtsls') then
             vim.o.makeprg = './node_modules/.bin/tsc --pretty false --noEmit'
             vim.opt.errorformat = '%f(%l\\,%c): %t%*[^:]:%m'
           end
@@ -1146,11 +1151,23 @@ require('lazy').setup({
           java = {},
         },
       })
+      vim.lsp.config('solargraph', {
+        cmd = { 'solargraph', 'stdio' },
+        settings = {
+          solargraph = {
+            diagnostics = true,
+          },
+        },
+        init_options = { formatting = false },
+        filetypes = { 'ruby' },
+        root_markers = { 'Gemfile', '.git' },
+      })
       local servers_enabled = {
         'lua_ls',
         'vtsls',
         'gopls',
         'jdtls',
+        'solargraph',
       }
       for _, ls in ipairs(servers_enabled) do
         vim.lsp.enable(ls)
@@ -1293,6 +1310,7 @@ require('lazy').setup({
         javascript = { 'prettier' },
         typescript = { 'prettier' },
         typescriptreact = { 'prettier' },
+        html = { 'prettier' },
         json = { 'prettier' },
         css = { 'prettier' },
         scss = { 'prettier' },
@@ -1302,7 +1320,17 @@ require('lazy').setup({
   },
 
   -- Highlight todo, notes, etc in comments
-  { 'folke/todo-comments.nvim', event = 'VimEnter', dependencies = { 'nvim-lua/plenary.nvim' }, opts = { signs = false } },
+  { 'folke/todo-comments.nvim', dependencies = { 'nvim-lua/plenary.nvim' }, opts = { signs = false } },
+
+  {
+    'FabijanZulj/blame.nvim',
+    lazy = false,
+    config = function()
+      require('blame').setup {}
+
+      vim.keymap.set('n', '<leader>gb', '<Cmd>BlameToggle virtual<CR>')
+    end,
+  },
 
   { -- Highlight, edit, and navigate code
     'nvim-treesitter/nvim-treesitter',
