@@ -34,13 +34,6 @@ vim.o.scrolloff = 1
 -- instead raise a dialog asking if you wish to save the current file(s)
 vim.o.confirm = true
 
--- vim.o.colorcolumn = '+1'
--- vim.o.textwidth = 110
-
--- TODO: this is completely broken
-vim.o.foldmethod = 'expr'
-vim.o.foldexpr = 'v:lua.vim.treesitter.foldexpr()'
-vim.o.foldlevel = 5
 -- Sync clipboard between OS and Neovim.
 --  Schedule the setting after `UiEnter` because it can increase startup-time.
 --  Remove this option if you want your OS clipboard to remain independent.
@@ -79,20 +72,17 @@ function _G.ToggleQuickfix()
     vim.cmd 'copen'
   end
 end
+
 vim.keymap.set('n', '<leader>q', ':lua ToggleQuickfix()<CR>', { noremap = true, silent = true, desc = 'Toggle [Q]uickfix list' })
 vim.keymap.set('n', '<leader>l', '<cmd>lopen<CR>', { desc = 'Open diagnostic [L]ocation list' })
+
 -- NOTE: here's how to do find and replace w/quickfixlist:
 -- :vimgrep /old_function/j **/*.py
 -- :cfdo %s/old_function/new_function/g | update
 
 -- TODO: undo tree history
--- TODO: resume last place in file
 -- TODO: yank, paste, delete without poluting the system clipboard
 -- TODO: limit jumplist to file directory and or support jumplist tree or advanced stuff
-
--- Netrw
--- TODO: toggle it to show hide, possibly as a sidebar
-vim.g.netrw_liststyle = 3
 
 -- ctrl+` for term toggle
 vim.keymap.set('n', '<C-`>', function()
@@ -148,28 +138,16 @@ vim.api.nvim_create_autocmd('BufEnter', {
     -- Only set if it's not already set, to avoid infinite loops or unnecessary work
     if vim.bo.filetype ~= 'json' then
       vim.bo.filetype = 'json'
-      -- print("Debug: .pp set to json (BufEnter fallback)")
     end
   end,
   desc = 'Force .pp files to json (BufEnter fallback)',
 })
 
--- Default indent settings, will be overrident by guess-indent and this autocommand
+-- Default indent settings, will be overrident by guess-indent
 vim.o.expandtab = true
 vim.o.shiftwidth = 2
 vim.o.tabstop = 2
 vim.o.softtabstop = 2
-vim.api.nvim_create_autocmd('BufEnter', {
-  pattern = '*',
-  callback = function()
-    -- TODO: set max column/ruler and configure q to wrap comments correctly accordingly
-    if vim.bo.filetype == 'go' then
-      vim.o.tabstop = 4
-    else
-    end
-  end,
-  desc = 'Set language specific settings',
-})
 
 -- Autoformat
 vim.b.disable_autoformat = false
@@ -268,45 +246,34 @@ vim.api.nvim_create_autocmd('ColorScheme', {
   end,
 })
 
-pcall(function()
-  vim.cmd.colorscheme 'modus'
-end, nil)
-
 ---@type vim.Option
 local rtp = vim.opt.rtp
 rtp:prepend(lazypath)
 require('lazy').setup({
-  install = { colorscheme = 'default' },
   -- Auto theme detection plugin
   {
     -- NOTE: you can use dark-notify if you're only tragetting MacOS. Using this instead because this config is used on Linux sometimes
     'f-person/auto-dark-mode.nvim',
+    lazy = false,
     config = function()
       local auto_dark_mode = require 'auto-dark-mode'
       auto_dark_mode.setup {
-        update_interval = 4000, -- Check for theme changes every 4 seconds
+        update_interval = 5000, -- Check for theme changes every 4 seconds
         set_dark_mode = function()
-          vim.cmd.colorscheme 'kanagawa-dragon'
+          vim.cmd.colorscheme 'desert'
         end,
         set_light_mode = function()
-          -- vim.cmd.colorscheme 'default'
-          -- vim.cmd.colorscheme 'lucius'
           vim.cmd.colorscheme 'modus'
         end,
       }
     end,
   },
   -- lights themes
-  { 'chiendo97/intellij.vim' },
-  { 'razcoen/fleet.nvim' },
-  { 'ronisbr/nano-theme.nvim' },
-  { 'kepano/flexoki-neovim' },
-  { 'rayes0/blossom.vim' },
-  { 'p00f/alabaster.nvim' },
-  { 'josebalius/vim-light-chromeclipse' },
+  { 'vpoltora/cursor-light.nvim' },
   {
     'miikanissi/modus-themes.nvim',
     config = function()
+      ---@diagnostic disable-next-line: missing-fields
       require('modus-themes').setup {
         styles = {
           comments = { italic = false },
@@ -317,41 +284,8 @@ require('lazy').setup({
       }
     end,
   },
-  {
-    'iibe/gruvbox-high-contrast',
-    config = function()
-      vim.g.gruvbox_bold = 0
-      vim.g.gruvbox_italic = 0
-      vim.g.gruvbox_transparent_bg = 1
-    end,
-  },
-  {
-    'racakenon/mytilus',
-    config = function()
-      require('mytilus.configs').setup {
-        options = {
-          sideBarDim = false, --if false then sidebar bg is same normal
-          statusBarRevers = true, --if false, statusBarRevers bg is d2_black,
-          NCWindowDim = true, --if false, not current window bg is same normal
-          str = { bold = false },
-          func = { bold = false, italic = false },
-        },
-      }
-    end,
-  },
-  { 'vim-scripts/vylight' },
-  { 'scheakur/vim-scheakur' },
   { 'wtfox/jellybeans.nvim' },
-  { 'makestatic/oblique.nvim' },
-  { 'w0ng/vim-hybrid' },
-  { 'jonathanfilip/vim-lucius' },
-  { 'habamax/vim-polar' },
-  'ramojus/mellifluous.nvim',
-  'tiesen243/vercel.nvim',
-  'vim-scripts/silent.vim',
   -- dark themes
-  { 'frenzyexists/aquarium-vim' },
-  { 'xiantang/darcula-dark.nvim' },
   {
     'rebelot/kanagawa.nvim',
     config = function()
@@ -402,8 +336,9 @@ require('lazy').setup({
     },
     lazy = false, -- neo-tree will lazily load itself
     config = function()
-      vim.keymap.set('n', '<leader>e', '<Cmd>Neotree reveal<CR>')
+      vim.keymap.set('n', '<leader>e', '<Cmd>Neotree reveal toggle=true<CR>')
       vim.keymap.set('n', '<leader>b', '<Cmd>Neotree toggle<CR>')
+      vim.keymap.set('n', '<leader>gs', '<Cmd>Neotree git_status toggle=true<CR>')
       require('neo-tree').setup {
         close_if_last_window = false, -- Close Neo-tree if it is the last window left in the tab
         popup_border_style = '', -- or "" to use 'winborder' on Neovim v0.11+
@@ -412,8 +347,9 @@ require('lazy').setup({
         },
         enable_git_status = true,
         enable_diagnostics = true,
-        open_files_do_not_replace_types = { 'terminal', 'trouble', 'qf' }, -- when opening files, do not use windows containing these filetypes or buftypes
+        open_files_do_not_replace_types = { 'trouble', 'qf' }, -- when opening files, do not use windows containing these filetypes or buftypes
         open_files_using_relative_paths = false,
+        open_files_in_last_window = true,
         sort_case_insensitive = false, -- used when sorting files and directories in the tree
         sort_function = nil, -- use a custom function for sorting files and directories in the tree
         -- sort_function = function (a,b)
@@ -517,8 +453,8 @@ require('lazy').setup({
         -- see `:h neo-tree-custom-commands-global`
         commands = {},
         window = {
-          position = 'right',
-          width = 40,
+          position = 'float',
+          -- width = 40,
           mapping_options = {
             noremap = true,
             nowait = true,
@@ -841,15 +777,15 @@ require('lazy').setup({
   {
     'nvim-mini/mini.tabline',
     config = function()
-      -- require('mini.tabline').setup {
-      --   show_icons = false,
-      --   -- Function which formats the tab label
-      --   -- By default surrounds with space and possibly prepends with icon
-      --   format = nil,
-      --   -- Where to show tabpage section in case of multiple vim tabpages.
-      --   -- One of 'left', 'right', 'none'.
-      --   tabpage_section = 'left',
-      -- }
+      require('mini.tabline').setup {
+        show_icons = false,
+        -- Function which formats the tab label
+        -- By default surrounds with space and possibly prepends with icon
+        format = nil,
+        -- Where to show tabpage section in case of multiple vim tabpages.
+        -- One of 'left', 'right', 'none'.
+        tabpage_section = 'left',
+      }
     end,
   },
   {
@@ -927,6 +863,34 @@ require('lazy').setup({
       pcall(require('telescope').load_extension, 'ui-select')
       pcall(require('telescope').load_extension, 'smart_history')
 
+      local dropdownTheme = {
+        previewer = false,
+        theme = 'dropdown',
+
+        results_title = false,
+
+        sorting_strategy = 'ascending',
+        layout_strategy = 'center',
+        layout_config = {
+          preview_cutoff = 1, -- Preview should always show (unless previewer = false)
+
+          width = function(_, max_columns, _)
+            return math.min(max_columns, 140)
+          end,
+
+          height = function(_, _, max_lines)
+            return math.min(max_lines, 25)
+          end,
+        },
+
+        border = true,
+        borderchars = {
+          prompt = { '─', '│', ' ', '│', '╭', '╮', '│', '│' },
+          results = { '─', '│', '─', '│', '├', '┤', '╯', '╰' },
+          preview = { '─', '│', '─', '│', '╭', '╮', '╯', '╰' },
+        },
+      }
+
       -- See `:help telescope.builtin`
       local builtin = require 'telescope.builtin'
       local themes = require 'telescope.themes'
@@ -936,12 +900,11 @@ require('lazy').setup({
       vim.keymap.set('n', '<leader>sw', builtin.grep_string, { desc = '[S]earch current [W]ord' })
       vim.keymap.set('n', '<leader>sd', builtin.diagnostics, { desc = '[S]earch [D]iagnostics' })
       vim.keymap.set('n', '<leader>sr', builtin.resume, { desc = '[S]earch [R]esume' })
-      vim.keymap.set('n', '<leader>s.', builtin.oldfiles, { desc = '[S]earch Recent Files ("." for repeat)' })
+      vim.keymap.set('n', '<leader>s.', builtin.command_history, { desc = '[S]earch Recent Files ("." for repeat)' })
 
       vim.keymap.set('n', '<leader>p', function()
-        builtin.find_files(themes.get_dropdown {
-          previewer = false,
-        })
+        -- NOTE: copied from telescope theme source, probably don't need the explict get_dropdown call since the opts are hardcoded
+        builtin.find_files(dropdownTheme)
       end, { desc = '[S]earch [F]iles' })
 
       vim.keymap.set('n', '<leader>f', function()
@@ -951,15 +914,11 @@ require('lazy').setup({
       end, { desc = '[F]ind in files' })
 
       vim.keymap.set('n', '<leader><leader>', function()
-        builtin.buffers(themes.get_dropdown {
-          previewer = false,
-        })
+        builtin.buffers(dropdownTheme)
       end, { desc = '[ ] Find existing buffers' })
 
       vim.keymap.set('n', '<leader>kt', function()
-        builtin.colorscheme(themes.get_dropdown {
-          previewer = false,
-        })
+        builtin.colorscheme(dropdownTheme)
       end, { desc = 'Search themes' })
 
       -- Slightly advanced example of overriding default behavior and theme
@@ -1013,33 +972,36 @@ require('lazy').setup({
       vim.api.nvim_create_autocmd('LspAttach', {
         group = vim.api.nvim_create_augroup('kickstart-lsp-attach', { clear = true }),
         callback = function(event)
-          -- Rename the variable under your cursor.
-          --  Most Language Servers support renaming across files, etc.
-          -- map('gn', vim.lsp.buf.rename, '[R]e[n]ame')
-
-          -- Execute a code action, usually your cursor needs to be on top of an error
-          -- or a suggestion from your LSP for this to activate.
-          -- map('ga', vim.lsp.buf.code_action, '[G]oto Code [A]ction', { 'n', 'x' })
-
-          -- Find references for the word under your cursor.
-          -- map('gr', require('telescope.builtin').lsp_references, '[G]oto [R]eferences')
-          -- map('gr', vim.lsp.buf.references, '[G]oto [R]eferences', { 'n' })
-
-          -- Jump to the implementation of the word under your cursor.
-          --  Useful when your language has ways of declaring types without an actual implementation.
-          -- map('gi', require('telescope.builtin').lsp_implementations, '[G]oto [I]mplementation')
-          -- map('gi', vim.lsp.buf.implementation, '[G]oto [I]mplementation', { 'n' })
-
-          vim.keymap.set('n', 'grr', require('telescope.builtin').lsp_references, { desc = '[G]oto [R]eferences' })
-          vim.keymap.set('n', 'gri', require('telescope.builtin').lsp_implementations, { desc = '[G]oto [I]mplementation' })
-          vim.keymap.set('n', 'grd', require('telescope.builtin').lsp_definitions, { desc = '[G]oto [D]efinition' })
+          local builtin = require 'telescope.builtin'
+          -- local themes = require 'telescope.themes'
+          local vertical_opts = {
+            layout_strategy = 'vertical',
+          }
+          vim.keymap.set('n', 'grr', function()
+            builtin.lsp_references(vertical_opts)
+          end, { desc = '[G]oto [R]eferences' })
+          vim.keymap.set('n', 'gri', function()
+            builtin.lsp_implementations(vertical_opts)
+          end, { desc = '[G]oto [I]mplementation' })
+          vim.keymap.set('n', 'grd', function()
+            builtin.lsp_definitions(vertical_opts)
+          end, { desc = '[G]oto [D]efinition' })
           vim.keymap.set('n', 'grD', vim.lsp.buf.declaration, { desc = '[G]oto [D]eclaration' })
-          vim.keymap.set('n', 'gO', require('telescope.builtin').lsp_document_symbols, { desc = 'Open Document Symbols' })
-          vim.keymap.set('n', 'gW', require('telescope.builtin').lsp_dynamic_workspace_symbols, { desc = 'Open Workspace Symbols' })
-          vim.keymap.set('n', 'grt', require('telescope.builtin').lsp_type_definitions, { desc = '[G]oto [T]ype Definition' })
+          vim.keymap.set('n', 'gO', function()
+            builtin.lsp_document_symbols(vertical_opts)
+          end, { desc = 'Open Document Symbols' })
+          vim.keymap.set('n', 'gW', function()
+            builtin.lsp_dynamic_workspace_symbols(vertical_opts)
+          end, { desc = 'Open Workspace Symbols' })
+          vim.keymap.set('n', 'grt', function()
+            builtin.lsp_type_definitions(vertical_opts)
+          end, { desc = '[G]oto [T]ype Definition' })
+          vim.keymap.set('n', 'gf', vim.lsp.buf.code_action, { desc = '[G]oto [F]ixes' })
 
           vim.keymap.set('n', '<Plug>OriginalGd', 'gd', { silent = true })
-          vim.keymap.set('n', 'gd', require('telescope.builtin').lsp_definitions, { desc = '[G]oto [D]efinition' })
+          vim.keymap.set('n', 'gd', function()
+            builtin.lsp_definitions(vertical_opts)
+          end, { desc = '[G]oto [D]efinition' })
           vim.keymap.set('n', 'gD', '<Plug>OriginalGd', { desc = 'Built-in Go to Definition' })
 
           -- Fuzzy find all the symbols in your current document.
@@ -1055,6 +1017,7 @@ require('lazy').setup({
           --  the definition of its *type*, not where it was *defined*.
           -- map('grt', require('telescope.builtin').lsp_type_definitions, '[G]oto [T]ype Definition')
 
+          -- TODO: figure out something better than this
           vim.keymap.set('n', 'K', vim.lsp.buf.hover, { desc = 'Hover' })
           vim.api.nvim_create_autocmd({ 'CursorHold', 'CursorHoldI' }, {
             buffer = event.buf,
@@ -1146,11 +1109,71 @@ require('lazy').setup({
           },
         },
       })
+
+      -- JAVA -----------------------------------------------------------------
+      local function get_jdtls_cache_dir()
+        return vim.fn.stdpath 'cache' .. '/jdtls'
+      end
+      local function get_jdtls_workspace_dir()
+        return get_jdtls_cache_dir() .. '/workspace'
+      end
+      local function get_jdtls_jvm_args()
+        local env = os.getenv 'JDTLS_JVM_ARGS'
+        local args = {}
+        for a in string.gmatch((env or ''), '%S+') do
+          local arg = string.format('--jvm-arg=%s', a)
+          table.insert(args, arg)
+        end
+        return unpack(args)
+      end
+      local root_markers1 = {
+        -- Multi-module projects
+        'mvnw', -- Maven
+        'gradlew', -- Gradle
+        'settings.gradle', -- Gradle
+        'settings.gradle.kts', -- Gradle
+        -- Use git directory as last resort for multi-module maven projects
+        -- In multi-module maven projects it is not really possible to determine what is the parent directory
+        -- and what is submodule directory. And jdtls does not break if the parent directory is at higher level than
+        -- actual parent pom.xml so propagating all the way to root git directory is fine
+        '.git',
+      }
+      local root_markers2 = {
+        -- Single-module projects
+        'build.xml', -- Ant
+        'pom.xml', -- Maven
+        'build.gradle', -- Gradle
+        'build.gradle.kts', -- Gradle
+      }
       vim.lsp.config('jdtls', {
-        settings = {
-          java = {},
-        },
+        ---@param dispatchers? vim.lsp.rpc.Dispatchers
+        ---@param config vim.lsp.ClientConfig
+        cmd = function(dispatchers, config)
+          local workspace_dir = get_jdtls_workspace_dir()
+          local data_dir = workspace_dir
+
+          if config.root_dir then
+            data_dir = data_dir .. '/' .. vim.fn.fnamemodify(config.root_dir, ':p:h:t')
+          end
+
+          local config_cmd = {
+            'jdtls',
+            '-data',
+            data_dir,
+            get_jdtls_jvm_args(),
+          }
+
+          return vim.lsp.rpc.start(config_cmd, dispatchers, {
+            cwd = config.cmd_cwd,
+            env = config.cmd_env,
+            detached = config.detached,
+          })
+        end,
+        filetypes = { 'java' },
+        root_markers = vim.fn.has 'nvim-0.11.3' == 1 and { root_markers1, root_markers2 } or vim.list_extend(root_markers1, root_markers2),
+        init_options = {},
       })
+      -- JAVA -----------------------------------------------------------------
       vim.lsp.config('solargraph', {
         cmd = { 'solargraph', 'stdio' },
         settings = {
@@ -1335,8 +1358,8 @@ require('lazy').setup({
   { -- Highlight, edit, and navigate code
     'nvim-treesitter/nvim-treesitter',
     build = ':TSUpdate',
-    main = 'nvim-treesitter.configs', -- Sets main module to use for opts
-    -- [[ Configure Treesitter ]] See `:help nvim-treesitter`
+    branch = 'master',
+    -- main = 'nvim-treesitter.configs', -- Sets main module to use for opts
     opts = {
       ensure_installed = {
         'bash',
@@ -1363,9 +1386,10 @@ require('lazy').setup({
         -- Some languages depend on vim's regex highlighting system (such as Ruby) for indent rules.
         --  If you are experiencing weird indenting issues, add the language to
         --  the list of additional_vim_regex_highlighting and disabled languages for indent.
-        additional_vim_regex_highlighting = { 'ruby' },
+        additional_vim_regex_highlighting = { 'ruby', 'html' },
       },
-      indent = { enable = true, disable = { 'ruby' } },
+      -- TODO: is this really needed?
+      indent = { enable = true, disable = { 'ruby', 'html' } },
     },
     -- There are additional nvim-treesitter modules that you can use to interact
     -- with nvim-treesitter. You should go explore a few and see what interests you:
@@ -1421,3 +1445,5 @@ require('lazy').setup({
     },
   },
 })
+
+-- require 'custom.plugins.init'
