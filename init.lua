@@ -154,7 +154,7 @@ vim.b.disable_autoformat = false
 vim.g.disable_autoformat = false
 vim.api.nvim_create_user_command('NoFormatOnSave', function(args)
   if args.bang then
-    -- FormatDisable! will disable formatting just for this buffer
+    -- NoFormatOnSave! will disable formatting just for this buffer
     vim.b.disable_autoformat = true
   else
     vim.g.disable_autoformat = true
@@ -768,6 +768,7 @@ require('lazy').setup({
         { 'z', mode = { 'n', 'v' } },
         { 'h', mode = { 'n', 'v' } },
         { 't', mode = { 'n' } },
+        { '<leader>', mode = { 'n' } },
         -- TODO: get trigger for 'v' in normal mode working again
         -- NOTE: from nvchad:
         -- keys = { "<leader>", "<c-w>", '"', "'", "`", "c", "v", "g" },
@@ -1017,12 +1018,9 @@ require('lazy').setup({
           --  the definition of its *type*, not where it was *defined*.
           -- map('grt', require('telescope.builtin').lsp_type_definitions, '[G]oto [T]ype Definition')
 
-          -- TODO: figure out something better than this
           vim.keymap.set('n', 'K', vim.lsp.buf.hover, { desc = 'Hover' })
-          vim.api.nvim_create_autocmd({ 'CursorHold', 'CursorHoldI' }, {
-            buffer = event.buf,
-            callback = vim.diagnostic.open_float,
-          })
+          vim.keymap.set('n', 'T', vim.diagnostic.open_float, { desc = 'Show diagnostic info [T]ooltip' })
+          vim.keymap.set('n', '<leader>dq', vim.diagnostic.setqflist, { desc = '[D]iagnostics to [Q]uickfix list' })
 
           -- The following two autocommands are used to highlight references of the
           -- word under your cursor when your cursor rests there for a little while.
@@ -1030,13 +1028,6 @@ require('lazy').setup({
           -- When you move your cursor, the highlights will be cleared (the second autocommand).
           local client = vim.lsp.get_client_by_id(event.data.client_id)
           if client and client:supports_method(vim.lsp.protocol.Methods.textDocument_documentHighlight, event.buf) then
-            local highlight_augroup = vim.api.nvim_create_augroup('kickstart-lsp-highlight', { clear = false })
-            -- vim.api.nvim_create_autocmd({ 'CursorMoved', 'CursorMovedI' }, {
-            --   buffer = event.buf,
-            --   group = highlight_augroup,
-            --   callback = vim.lsp.buf.clear_references,
-            -- })
-
             vim.api.nvim_create_autocmd('LspDetach', {
               group = vim.api.nvim_create_augroup('kickstart-lsp-detach', { clear = true }),
               callback = function(event2)
