@@ -47,7 +47,17 @@ vim.keymap.set('n', '<Esc>', '<cmd>nohlsearch<CR>') -- Clear highlights on searc
 vim.keymap.set('n', '<leader>tw', '<cmd>set wrap!<CR>', { desc = '[T]oggle line [W]rap' })
 vim.keymap.set('n', '<leader>w', '<cmd>bd<CR>', { desc = 'Close current buffer ([W]indow)' })
 -- NOTE: This won't work in all terminal emulators/tmux/etc. Try your own mapping or just use <C-\><C-n> to exit terminal mode
-vim.keymap.set('t', '<Esc><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode' })
+vim.keymap.set('t', '<Esc><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode', silent = true })
+vim.keymap.set('t', '<leader><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode', silent = true })
+vim.keymap.set('t', '<leader><leader>', '<C-\\><C-n><C-o>', { desc = 'Exit terminal mode', silent = true })
+-- TODO: verify this
+vim.api.nvim_create_autocmd('TermOpen', {
+  group = vim.api.nvim_create_augroup('term-nav', { clear = true }),
+  callback = function()
+    vim.keymap.set('n', '<leader><leader>', '<C-\\><C-n><C-o>', { buffer = true, desc = 'Terminal-only normal mode map' })
+  end,
+})
+
 --  See `:help wincmd` for a list of all window commands
 --  TODO: consider using Meta instead of control for ergonomics on real keyboard
 vim.keymap.set('n', '<C-h>', '<C-w><C-h>', { desc = 'Move focus to the left window' })
@@ -56,7 +66,6 @@ vim.keymap.set('n', '<C-j>', '<C-w><C-j>', { desc = 'Move focus to the lower win
 vim.keymap.set('n', '<C-k>', '<C-w><C-k>', { desc = 'Move focus to the upper window' })
 
 -- Quickfix and Loclist stuff
--- vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostic [Q]uickfix list' })
 function _G.ToggleQuickfix()
   local qf_open = false
   for _, win_info in ipairs(vim.fn.getwininfo()) do
@@ -73,8 +82,24 @@ function _G.ToggleQuickfix()
   end
 end
 
+function _G.ToggleLocList()
+  local locListIsOpen = vim.fn.getloclist(0, { winid = 0 }).winid ~= 0
+  if locListIsOpen then
+    vim.cmd 'lclose'
+  else
+    vim.diagnostic.setloclist()
+  end
+end
+
+vim.api.nvim_create_user_command('Lq', function()
+  local loclist = vim.fn.getloclist(0)
+  vim.fn.setqflist(loclist, 'r')
+  vim.cmd 'copen'
+end, {})
+
 vim.keymap.set('n', '<leader>q', ':lua ToggleQuickfix()<CR>', { noremap = true, silent = true, desc = 'Toggle [Q]uickfix list' })
-vim.keymap.set('n', '<leader>l', '<cmd>lopen<CR>', { desc = 'Open diagnostic [L]ocation list' })
+-- vim.keymap.set('n', '<leader>l', '<cmd>lopen<CR>', { desc = 'Open diagnostic [L]ocation list' })
+vim.keymap.set('n', '<leader>l', ':lua ToggleLocList()<CR>', { noremap = true, silent = true, desc = 'Open diagnostic quickfix [L]ist' })
 
 -- NOTE: here's how to do find and replace w/quickfixlist:
 -- :vimgrep /old_function/j **/*.py
@@ -186,7 +211,7 @@ end, {
   desc = 'Toggle autoformat-on-save',
   bang = true,
 })
-vim.keymap.set('n', '<leader>tf', '<cmd>ToggleFormatOnSave<CR>', { desc = '[T]oggle format on save' })
+-- vim.keymap.set('n', '<leader>tf', '<cmd>ToggleFormatOnSave<CR>', { desc = '[T]oggle format on save' })
 
 vim.keymap.set('n', '<M-]>', '<cmd>bnext<CR>', { desc = 'Next buffer ]', silent = true })
 vim.keymap.set('n', '<leader>]', '<cmd>bnext<CR>', { desc = 'Next buffer ]', silent = true })
@@ -246,6 +271,32 @@ vim.api.nvim_create_autocmd('ColorScheme', {
   end,
 })
 
+function CustomizeModusTheme()
+  local bg = vim.o.background
+  if bg == 'light' then
+    vim.cmd [[
+      hi NeoTreeNormal guibg=white ctermbg=white
+    ]]
+  elseif bg == 'dark' then
+  end
+end
+
+vim.api.nvim_create_autocmd('ColorScheme', {
+  pattern = 'modus',
+  callback = function()
+    CustomizeModusTheme()
+  end,
+})
+vim.api.nvim_create_autocmd('OptionSet', {
+  pattern = 'background',
+  callback = function()
+    local theme = vim.g.colors_name
+    if theme and string.find(theme, 'modus') ~= nil then
+      CustomizeModusTheme()
+    end
+  end,
+})
+
 ---@type vim.Option
 local rtp = vim.opt.rtp
 rtp:prepend(lazypath)
@@ -260,16 +311,15 @@ require('lazy').setup({
       auto_dark_mode.setup {
         update_interval = 5000, -- Check for theme changes every 4 seconds
         set_dark_mode = function()
-          vim.cmd.colorscheme 'desert'
+          vim.cmd.colorscheme 'habamax'
         end,
         set_light_mode = function()
-          vim.cmd.colorscheme 'modus'
+          vim.cmd.colorscheme 'lunaperche'
         end,
       }
     end,
   },
   -- lights themes
-  { 'vpoltora/cursor-light.nvim' },
   {
     'miikanissi/modus-themes.nvim',
     config = function()
@@ -285,7 +335,18 @@ require('lazy').setup({
     end,
   },
   { 'wtfox/jellybeans.nvim' },
+  -- { 'y9san9/y9nika.nvim' },
+  { 'Verf/deepwhite.nvim' },
+  { 'webhooked/kanso.nvim' },
+  { 'scottmckendry/cyberdream.nvim' },
+  {
+    'datsfilipe/vesper.nvim',
+    -- TODO: remove italics
+  },
+  { 'mistweaverco/vhs-era-theme.nvim' },
+  { 'cemkagank/apple.nvim' },
   -- dark themes
+  { 'bluz71/vim-moonfly-colors' },
   {
     'rebelot/kanagawa.nvim',
     config = function()
@@ -296,6 +357,10 @@ require('lazy').setup({
         statementStyle = { bold = false },
       }
     end,
+  },
+  {
+    'vague-theme/vague.nvim',
+    -- TODO: remove italics
   },
   {
     'folke/tokyonight.nvim',
@@ -537,7 +602,7 @@ require('lazy').setup({
         filesystem = {
           filtered_items = {
             visible = true, -- when true, they will just be displayed differently than normal items
-            hide_dotfiles = true,
+            hide_dotfiles = false,
             hide_gitignored = true,
             hide_ignored = true, -- hide files that are ignored by other gitignore-like files
             -- other gitignore-like files, in descending order of precedence.
@@ -583,12 +648,13 @@ require('lazy').setup({
           -- instead of relying on nvim autocmd events.
           window = {
             mappings = {
-              ['<bs>'] = 'navigate_up',
+              -- ['<bs>'] = 'navigate_up',
               ['.'] = 'set_root',
               ['H'] = 'toggle_hidden',
-              ['/'] = 'fuzzy_finder',
-              ['D'] = 'fuzzy_finder_directory',
-              ['#'] = 'fuzzy_sorter', -- fuzzy sorting using the fzy algorithm
+              ['/'] = 'none',
+              -- ['/'] = 'fuzzy_finder',
+              -- ['D'] = 'fuzzy_finder_directory',
+              -- ['#'] = 'fuzzy_sorter', -- fuzzy sorting using the fzy algorithm
               -- ["D"] = "fuzzy_sorter_directory",
               ['f'] = 'filter_on_submit',
               ['<c-x>'] = 'clear_filter',
@@ -1028,13 +1094,13 @@ require('lazy').setup({
           -- When you move your cursor, the highlights will be cleared (the second autocommand).
           local client = vim.lsp.get_client_by_id(event.data.client_id)
           if client and client:supports_method(vim.lsp.protocol.Methods.textDocument_documentHighlight, event.buf) then
-            vim.api.nvim_create_autocmd('LspDetach', {
-              group = vim.api.nvim_create_augroup('kickstart-lsp-detach', { clear = true }),
-              callback = function(event2)
-                vim.lsp.buf.clear_references()
-                vim.api.nvim_clear_autocmds { group = 'kickstart-lsp-highlight', buffer = event2.buf }
-              end,
-            })
+            -- vim.api.nvim_create_autocmd('LspDetach', {
+            --   group = vim.api.nvim_create_augroup('kickstart-lsp-detach', { clear = true }),
+            --   callback = function(event2)
+            --     vim.lsp.buf.clear_references()
+            --     vim.api.nvim_clear_autocmds { group = 'kickstart-lsp-highlight', buffer = event2.buf }
+            --   end,
+            -- })
           end
 
           -- The following code creates a keymap to toggle inlay hints in your
@@ -1089,6 +1155,7 @@ require('lazy').setup({
           end,
         },
       }
+
       vim.lsp.config('lua_ls', {
         settings = {
           Lua = {
@@ -1176,6 +1243,37 @@ require('lazy').setup({
         filetypes = { 'ruby' },
         root_markers = { 'Gemfile', '.git' },
       })
+
+      -- Typescript --------------------------
+      vim.lsp.config('vtsls', {
+        settings = {
+          typescript = {
+            -- Prevents the server from indexing massive dependency or build folders
+            preferences = {
+              -- Only index files that are actually imported or in the 'include' path
+              autoImportFileExcludePatterns = { 'node_modules', 'dist', 'build', '.next' },
+            },
+            tsserver = {
+              -- Disabling the separate syntax server saves significant RAM
+              useSeparateSyntaxServer = false,
+              -- Tells the watcher to ignore these directories entirely
+              watchOptions = {
+                excludeDirectories = { '**/node_modules', '**/dist', '**/build', '**/.next' },
+              },
+            },
+          },
+          vtsls = {
+            autoUseWorkspaceTsdk = true,
+            experimental = {
+              completion = {
+                enableServerSideFuzzyMatch = true,
+              },
+            },
+          },
+        },
+      })
+      -- Typescript --------------------------
+
       local servers_enabled = {
         'lua_ls',
         'vtsls',
@@ -1334,7 +1432,49 @@ require('lazy').setup({
   },
 
   -- Highlight todo, notes, etc in comments
-  { 'folke/todo-comments.nvim', dependencies = { 'nvim-lua/plenary.nvim' }, opts = { signs = false } },
+  {
+    'folke/todo-comments.nvim',
+    dependencies = { 'nvim-lua/plenary.nvim' },
+    opts = {
+      signs = false,
+
+      -- Optional: point keywords at semantic names (defaults are usually fine)
+      keywords = {
+        TODO = { color = 'warning' },
+        WARN = { color = 'warning' },
+        NOTE = { color = 'info' }, -- INFO: is an alt of NOTE
+      },
+
+      -- Named colors used by keywords' `color` field.
+      -- Order matters: first hl group that yields a usable fg wins, else next, else hex.
+      colors = {
+        error = {
+          'DiagnosticError',
+          'ErrorMsg',
+          'NvimLightRed', -- some colorschemes; safe to remove if unused
+          '#DC2626',
+        },
+        warning = {
+          'DiagnosticWarn',
+          'WarningMsg',
+          'Special', -- example: try a theme-specific group you like
+          '#FBBF24',
+        },
+        info = {
+          -- 'DiagnosticInfo',
+          'Title', -- often distinct in schemes that weak DiagnosticInfo
+          '#2563EB',
+        },
+        hint = {
+          'DiagnosticHint',
+          'Comment', -- subtler NOTE/INFO if you prefer
+          '#10B981',
+        },
+        default = { 'Identifier', '#7C3AED' },
+        test = { 'Identifier', '@variable', '#FF00FF' },
+      },
+    },
+  },
 
   {
     'FabijanZulj/blame.nvim',
@@ -1348,11 +1488,15 @@ require('lazy').setup({
 
   { -- Highlight, edit, and navigate code
     'nvim-treesitter/nvim-treesitter',
+    lazy = false,
     build = ':TSUpdate',
-    branch = 'master',
-    -- main = 'nvim-treesitter.configs', -- Sets main module to use for opts
-    opts = {
-      ensure_installed = {
+    branch = 'main',
+    config = function()
+      local treesitter = require 'nvim-treesitter'
+
+      treesitter.setup()
+
+      local ensure_installed = {
         'bash',
         'c',
         'diff',
@@ -1368,26 +1512,40 @@ require('lazy').setup({
         'json',
         'javascript',
         'typescript',
+        'tsx',
+        'jsx',
+        'kotlin',
         'java',
-      },
-      -- Autoinstall languages that are not installed
-      auto_install = true,
-      highlight = {
-        enable = true,
-        -- Some languages depend on vim's regex highlighting system (such as Ruby) for indent rules.
-        --  If you are experiencing weird indenting issues, add the language to
-        --  the list of additional_vim_regex_highlighting and disabled languages for indent.
-        additional_vim_regex_highlighting = { 'ruby', 'html' },
-      },
-      -- TODO: is this really needed?
-      indent = { enable = true, disable = { 'ruby', 'html' } },
-    },
-    -- There are additional nvim-treesitter modules that you can use to interact
-    -- with nvim-treesitter. You should go explore a few and see what interests you:
-    --
-    --    - Incremental selection: Included, see `:help nvim-treesitter-incremental-selection-mod`
-    --    - Show your current context: https://github.com/nvim-treesitter/nvim-treesitter-context
-    --    - Treesitter + textobjects: https://github.com/nvim-treesitter/nvim-treesitter-textobjects
+        'elixir',
+        'eex',
+        'dockerfile',
+        'cpp',
+        'cmake',
+        'go',
+        'gomod',
+        'gosum',
+        'gotmpl',
+        'python',
+        'ruby',
+        'rust',
+        'astro',
+        'svelte',
+        'vue',
+        'angular',
+        'c_sharp',
+        'zsh',
+        'zig',
+        'yaml',
+        'xml',
+        'toml',
+        'sql',
+        'scss',
+        'javadoc',
+        'groovy',
+        'graphql',
+      }
+      treesitter.install(ensure_installed)
+    end,
   },
 
   -- The following comments only work if you have downloaded the kickstart repo, not just copy pasted the
@@ -1438,3 +1596,6 @@ require('lazy').setup({
 })
 
 -- require 'custom.plugins.init'
+
+vim.cmd 'packadd nvim.undotree'
+vim.keymap.set('n', '<leader>u', '<Cmd>Undotree<CR>')
