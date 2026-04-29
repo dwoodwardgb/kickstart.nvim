@@ -5,16 +5,13 @@
 vim.g.mapleader = ' '
 vim.g.maplocalleader = ' '
 
--- space bracket for optional bnext
-
--- NOTE: See `:help vim.o`
 --  TODO: consider remapping ; to : for easy commands
 vim.o.number = true
 vim.o.relativenumber = true
 vim.o.mouse = 'a'
 vim.o.showmode = true
 vim.o.wrap = false
-vim.opt.fillchars = { eob = ' ' }
+vim.opt.fillchars = { eob = '~', fold = ' ' }
 vim.opt.completeopt = { 'menuone', 'noinsert', 'noselect', 'preview', 'popup' }
 vim.o.breakat = '^I!@*+;,./?'
 vim.o.breakindent = true
@@ -22,14 +19,14 @@ vim.o.undofile = true
 vim.o.ignorecase = true
 vim.o.smartcase = true
 vim.o.signcolumn = 'yes'
-vim.o.timeoutlen = 350 -- Decrease mapped sequence wait time
+vim.o.timeoutlen = 700
 vim.o.splitright = true
 vim.o.splitbelow = true
 vim.o.list = true
 vim.opt.listchars = { tab = '. ', trail = '·', nbsp = '␣' }
 vim.o.inccommand = 'nosplit'
 vim.o.cursorline = true -- Show which line your cursor is on
-vim.o.scrolloff = 1
+vim.o.scrolloff = 2
 -- if performing an operation that would fail due to unsaved changes in the buffer (like `:q`),
 -- instead raise a dialog asking if you wish to save the current file(s)
 vim.o.confirm = true
@@ -43,6 +40,14 @@ end)
 
 vim.g.have_nerd_font = false
 
+vim.filetype.add {
+  extension = {
+    pp = 'json',
+    ftl = 'html',
+    ftlh = 'html',
+  },
+}
+
 vim.keymap.set('n', '<Esc>', '<cmd>nohlsearch<CR>') -- Clear highlights on search when pressing <Esc> in normal mode
 vim.keymap.set('n', '<leader>tw', '<cmd>set wrap!<CR>', { desc = '[T]oggle line [W]rap' })
 vim.keymap.set('n', '<leader>w', '<cmd>bd<CR>', { desc = 'Close current buffer ([W]indow)' })
@@ -50,7 +55,6 @@ vim.keymap.set('n', '<leader>w', '<cmd>bd<CR>', { desc = 'Close current buffer (
 vim.keymap.set('t', '<Esc><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode', silent = true })
 vim.keymap.set('t', '<leader><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode', silent = true })
 vim.keymap.set('t', '<leader><leader>', '<C-\\><C-n><C-o>', { desc = 'Exit terminal mode', silent = true })
--- TODO: verify this
 vim.api.nvim_create_autocmd('TermOpen', {
   group = vim.api.nvim_create_augroup('term-nav', { clear = true }),
   callback = function()
@@ -105,7 +109,6 @@ vim.keymap.set('n', '<leader>l', ':lua ToggleLocList()<CR>', { noremap = true, s
 -- :vimgrep /old_function/j **/*.py
 -- :cfdo %s/old_function/new_function/g | update
 
--- TODO: undo tree history
 -- TODO: yank, paste, delete without poluting the system clipboard
 -- TODO: limit jumplist to file directory and or support jumplist tree or advanced stuff
 
@@ -154,20 +157,6 @@ vim.api.nvim_create_autocmd('BufReadPost', {
   end,
 })
 
--- Force .pp to be treated as json files, not Pascal
--- NOTE: used AI, could be wrong
--- TODO: decide if BufEnter is the best trigger
-vim.api.nvim_create_autocmd('BufEnter', {
-  pattern = '*.pp',
-  callback = function()
-    -- Only set if it's not already set, to avoid infinite loops or unnecessary work
-    if vim.bo.filetype ~= 'json' then
-      vim.bo.filetype = 'json'
-    end
-  end,
-  desc = 'Force .pp files to json (BufEnter fallback)',
-})
-
 -- Default indent settings, will be overrident by guess-indent
 vim.o.expandtab = true
 vim.o.shiftwidth = 2
@@ -213,12 +202,10 @@ end, {
 })
 -- vim.keymap.set('n', '<leader>tf', '<cmd>ToggleFormatOnSave<CR>', { desc = '[T]oggle format on save' })
 
-vim.keymap.set('n', '<M-]>', '<cmd>bnext<CR>', { desc = 'Next buffer ]', silent = true })
-vim.keymap.set('n', '<leader>]', '<cmd>bnext<CR>', { desc = 'Next buffer ]', silent = true })
-vim.keymap.set('n', '<M-[>', '<cmd>bprev<CR>', { desc = 'Prev buffer [', silent = true })
-vim.keymap.set('n', '<leader>[', '<cmd>bprev<CR>', { desc = 'Prev buffer [', silent = true })
-
--- TODO: makeprg set to npm run check or wahtever based on project
+-- vim.keymap.set('n', '<M-]>', '<cmd>bnext<CR>', { desc = 'Next buffer ]', silent = true })
+-- vim.keymap.set('n', '<leader>]', '<cmd>bnext<CR>', { desc = 'Next buffer ]', silent = true })
+-- vim.keymap.set('n', '<M-[>', '<cmd>bprev<CR>', { desc = 'Prev buffer [', silent = true })
+-- vim.keymap.set('n', '<leader>[', '<cmd>bprev<CR>', { desc = 'Prev buffer [', silent = true })
 
 -- TODO: handle editor closing unexpectedly, maybe globally check for buffer on quit
 
@@ -314,7 +301,8 @@ require('lazy').setup({
           vim.cmd.colorscheme 'habamax'
         end,
         set_light_mode = function()
-          vim.cmd.colorscheme 'lunaperche'
+          -- vim.cmd.colorscheme 'lunaperche'
+          vim.cmd.colorscheme 'wildcharm'
         end,
       }
     end,
@@ -335,16 +323,11 @@ require('lazy').setup({
     end,
   },
   { 'wtfox/jellybeans.nvim' },
-  -- { 'y9san9/y9nika.nvim' },
   { 'Verf/deepwhite.nvim' },
-  { 'webhooked/kanso.nvim' },
-  { 'scottmckendry/cyberdream.nvim' },
   {
-    'datsfilipe/vesper.nvim',
     -- TODO: remove italics
+    'datsfilipe/vesper.nvim',
   },
-  { 'mistweaverco/vhs-era-theme.nvim' },
-  { 'cemkagank/apple.nvim' },
   -- dark themes
   { 'bluz71/vim-moonfly-colors' },
   {
@@ -359,25 +342,10 @@ require('lazy').setup({
     end,
   },
   {
-    'vague-theme/vague.nvim',
     -- TODO: remove italics
-  },
-  {
-    'folke/tokyonight.nvim',
-    config = function()
-      ---@diagnostic disable-next-line: missing-fields
-      require('tokyonight').setup {
-        styles = {
-          comments = { italic = false }, -- Disable italics in comments
-          functionStyle = { italic = false },
-          keywordStyle = { italic = false },
-          statementStyle = { bold = false },
-        },
-      }
-    end,
+    'vague-theme/vague.nvim',
   },
   { 'thepogsupreme/mountain.nvim' },
-  { 'pauchiner/pastelnight.nvim' },
   { 'NMAC427/guess-indent.nvim' },
   { -- Adds git related signs to the gutter, as well as utilities for managing changes
     'lewis6991/gitsigns.nvim',
@@ -1387,7 +1355,7 @@ require('lazy').setup({
     },
   },
 
-  { -- Autoformat
+  { -- stevearc/conform.nvim
     'stevearc/conform.nvim',
     event = { 'BufWritePre' },
     cmd = { 'ConformInfo' },
@@ -1412,7 +1380,7 @@ require('lazy').setup({
           return nil
         else
           return {
-            timeout_ms = 800,
+            timeout_ms = 10000,
             lsp_format = 'fallback',
           }
         end
@@ -1485,7 +1453,6 @@ require('lazy').setup({
       vim.keymap.set('n', '<leader>gb', '<Cmd>BlameToggle virtual<CR>')
     end,
   },
-
   { -- Highlight, edit, and navigate code
     'nvim-treesitter/nvim-treesitter',
     lazy = false,
@@ -1547,20 +1514,30 @@ require('lazy').setup({
       treesitter.install(ensure_installed)
     end,
   },
+  {
+    'nvim-treesitter/nvim-treesitter-context',
+    opts = {
+      enable = true,
+      multiline_threshold = 1,
+      max_lines = 2, -- Keeps signatures from taking over the screen NOTE: should match scrolloff
+      mode = 'cursor', -- 'cursor' or 'topline'
+      trim_scope = 'outer',
+    },
+  },
+  -- ;; ~/.config/nvim/queries/javascript/context.scm
+  --
+  -- (function_declaration) @context
+  -- (method_definition) @context
+  -- (class_declaration) @context
+  -- (arrow_function) @context
+  --
+  -- ;; Notice we are NOT including (if_statement) @context here.
+  -- ;; This effectively "disables" if-statements from sticking.
 
   -- The following comments only work if you have downloaded the kickstart repo, not just copy pasted the
   -- init.lua. If you want these files, they are in the repository, so you can just download them and
   -- place them in the correct locations.
 
-  -- NOTE: Next step on your Neovim journey: Add/Configure additional plugins for Kickstart
-  --
-  --  Here are some example plugins that I've included in the Kickstart repository.
-  --  Uncomment any of the lines below to enable them (you will need to restart nvim).
-  --
-  -- require 'kickstart.plugins.debug',
-  -- require 'kickstart.plugins.indent_line',
-  -- require 'kickstart.plugins.lint',
-  -- require 'kickstart.plugins.autopairs',
   require 'kickstart.plugins.gitsigns', -- adds gitsigns recommend keymaps
 
   -- NOTE: The import below can automatically add your own plugins, configuration, etc from `lua/custom/plugins/*.lua`
@@ -1599,3 +1576,9 @@ require('lazy').setup({
 
 vim.cmd 'packadd nvim.undotree'
 vim.keymap.set('n', '<leader>u', '<Cmd>Undotree<CR>')
+
+function myfoldtext()
+  local line = vim.fn.getline(vim.v.foldstart)
+  return line
+end
+vim.o.foldtext = 'v:lua.myfoldtext()'
