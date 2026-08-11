@@ -1,0 +1,11 @@
+{
+  "plugins": ["prettier-plugin-freemarker"],
+  "overrides": [
+    {
+      "files": "*.ftlh",
+      "options": {
+        "parser": "freemarker"
+      }
+    }
+  ]
+}

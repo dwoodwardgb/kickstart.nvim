@@ -11,7 +11,7 @@ vim.o.relativenumber = true
 vim.o.mouse = 'a'
 vim.o.showmode = true
 vim.o.wrap = false
-vim.opt.fillchars = { eob = '~', fold = ' ' }
+vim.opt.fillchars = { eob = '~', fold = ' ', diff = ' ' }
 vim.opt.completeopt = { 'menuone', 'noinsert', 'noselect', 'preview', 'popup' }
 vim.o.breakat = '^I!@*+;,./?'
 vim.o.breakindent = true
@@ -19,7 +19,7 @@ vim.o.undofile = true
 vim.o.ignorecase = true
 vim.o.smartcase = true
 vim.o.signcolumn = 'yes'
-vim.o.timeoutlen = 700
+vim.o.timeoutlen = 900
 vim.o.splitright = true
 vim.o.splitbelow = true
 vim.o.list = true
@@ -43,14 +43,85 @@ vim.g.have_nerd_font = false
 vim.filetype.add {
   extension = {
     pp = 'json',
-    ftl = 'html',
-    ftlh = 'html',
+    ftl = 'freemarker',
+    ftlh = 'freemarker',
+    mdc = 'markdown',
   },
 }
 
 vim.keymap.set('n', '<Esc>', '<cmd>nohlsearch<CR>') -- Clear highlights on search when pressing <Esc> in normal mode
 vim.keymap.set('n', '<leader>tw', '<cmd>set wrap!<CR>', { desc = '[T]oggle line [W]rap' })
-vim.keymap.set('n', '<leader>w', '<cmd>bd<CR>', { desc = 'Close current buffer ([W]indow)' })
+vim.keymap.set('n', '<leader>w', function()
+  local buf = vim.api.nvim_get_current_buf()
+  local wins = vim.api.nvim_list_wins()
+
+  local alt = vim.fn.bufnr '#'
+  local other_buf = nil
+
+  if alt > 0 and alt ~= buf and vim.api.nvim_buf_is_loaded(alt) and vim.bo[alt].buflisted then
+    other_buf = alt
+  else
+    for _, b in ipairs(vim.api.nvim_list_bufs()) do
+      if b ~= buf and vim.api.nvim_buf_is_loaded(b) and vim.bo[b].buflisted then
+        other_buf = b
+        break
+      end
+    end
+  end
+
+  if other_buf then
+    for _, win in ipairs(wins) do
+      if vim.api.nvim_win_get_buf(win) == buf and not vim.w[win].oil_sidebar then
+        vim.api.nvim_win_set_buf(win, other_buf)
+      end
+    end
+  else
+    vim.cmd 'enew'
+  end
+
+  local still_used = false
+  for _, win in ipairs(vim.api.nvim_list_wins()) do
+    if vim.api.nvim_win_get_buf(win) == buf then
+      still_used = true
+      break
+    end
+  end
+  if not still_used then
+    vim.cmd('bd ' .. buf)
+  end
+end, { desc = 'Close current buffer ([W]indow)' })
+vim.keymap.set('n', '<leader>W', function()
+  -- Resolve the "current" buffer from the focused window, but if focus is in a
+  -- special window (oil sidebar, terminal, floating/which-key, etc.) fall back
+  -- to a normal listed buffer so we don't accidentally keep the sidebar and
+  -- delete the file you were actually editing.
+  local cur = vim.api.nvim_get_current_buf()
+  if vim.bo[cur].buftype ~= '' or not vim.bo[cur].buflisted then
+    for _, win in ipairs(vim.api.nvim_list_wins()) do
+      local b = vim.api.nvim_win_get_buf(win)
+      if vim.bo[b].buftype == '' and vim.bo[b].buflisted then
+        cur = b
+        break
+      end
+    end
+  end
+  for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+    if buf ~= cur and vim.api.nvim_buf_is_loaded(buf) then
+      if vim.bo[buf].buftype == 'terminal' then
+        goto continue
+      end
+      for _, win in ipairs(vim.fn.win_findbuf(buf)) do
+        if vim.w[win].oil_sidebar then
+          goto continue
+        end
+      end
+      -- force = false errors on modified buffers; pcall so one unsaved buffer
+      -- doesn't abort the loop and leave the rest open.
+      pcall(vim.api.nvim_buf_delete, buf, { force = false })
+    end
+    ::continue::
+  end
+end, { desc = 'Close all buffers except current' })
 -- NOTE: This won't work in all terminal emulators/tmux/etc. Try your own mapping or just use <C-\><C-n> to exit terminal mode
 vim.keymap.set('t', '<Esc><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode', silent = true })
 vim.keymap.set('t', '<leader><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode', silent = true })
@@ -58,6 +129,7 @@ vim.keymap.set('t', '<leader><leader>', '<C-\\><C-n><C-o>', { desc = 'Exit termi
 vim.api.nvim_create_autocmd('TermOpen', {
   group = vim.api.nvim_create_augroup('term-nav', { clear = true }),
   callback = function()
+    vim.b.term_origin_win = vim.api.nvim_get_current_win()
     vim.keymap.set('n', '<leader><leader>', '<C-\\><C-n><C-o>', { buffer = true, desc = 'Terminal-only normal mode map' })
   end,
 })
@@ -114,19 +186,26 @@ vim.keymap.set('n', '<leader>l', ':lua ToggleLocList()<CR>', { noremap = true, s
 
 -- ctrl+` for term toggle
 vim.keymap.set('n', '<C-`>', function()
-  local bufnr = -1
-  for _, b in ipairs(vim.api.nvim_list_bufs()) do
-    if vim.api.nvim_buf_is_loaded(b) and vim.bo[b].buftype == 'terminal' then
-      bufnr = b
-      break
+  -- Focus existing terminal window if one is visible
+  for _, win in ipairs(vim.api.nvim_list_wins()) do
+    local buf = vim.api.nvim_win_get_buf(win)
+    if vim.bo[buf].buftype == 'terminal' then
+      vim.api.nvim_set_current_win(win)
+      return
     end
   end
-
-  if bufnr ~= -1 then
-    vim.api.nvim_set_current_buf(bufnr)
-  else
-    vim.cmd 'terminal'
+  -- Otherwise find hidden terminal buffer and open it in its origin window
+  for _, b in ipairs(vim.api.nvim_list_bufs()) do
+    if vim.api.nvim_buf_is_loaded(b) and vim.bo[b].buftype == 'terminal' then
+      local origin = vim.b[b].term_origin_win
+      if origin and vim.api.nvim_win_is_valid(origin) then
+        vim.api.nvim_set_current_win(origin)
+      end
+      vim.api.nvim_set_current_buf(b)
+      return
+    end
   end
+  vim.cmd 'terminal'
 end, { noremap = true, silent = true })
 
 -- NOTE: Some terminals have colliding keymaps or are not able to send distinct keycodes
@@ -259,13 +338,6 @@ vim.api.nvim_create_autocmd('ColorScheme', {
 })
 
 function CustomizeModusTheme()
-  local bg = vim.o.background
-  if bg == 'light' then
-    vim.cmd [[
-      hi NeoTreeNormal guibg=white ctermbg=white
-    ]]
-  elseif bg == 'dark' then
-  end
 end
 
 vim.api.nvim_create_autocmd('ColorScheme', {
@@ -301,8 +373,8 @@ require('lazy').setup({
           vim.cmd.colorscheme 'habamax'
         end,
         set_light_mode = function()
-          -- vim.cmd.colorscheme 'lunaperche'
-          vim.cmd.colorscheme 'wildcharm'
+          vim.cmd.colorscheme 'lunaperche'
+          -- vim.cmd.colorscheme 'wildcharm'
         end,
       }
     end,
@@ -360,379 +432,231 @@ require('lazy').setup({
     },
   },
   {
-    'nvim-neo-tree/neo-tree.nvim',
-    branch = 'v3.x',
-    dependencies = {
-      'nvim-lua/plenary.nvim',
-      'MunifTanjim/nui.nvim',
-      -- "nvim-tree/nvim-web-devicons", -- optional, but recommended
-    },
-    lazy = false, -- neo-tree will lazily load itself
+    'stevearc/oil.nvim',
+    dependencies = { 'nvim-tree/nvim-web-devicons' },
     config = function()
-      vim.keymap.set('n', '<leader>e', '<Cmd>Neotree reveal toggle=true<CR>')
-      vim.keymap.set('n', '<leader>b', '<Cmd>Neotree toggle<CR>')
-      vim.keymap.set('n', '<leader>gs', '<Cmd>Neotree git_status toggle=true<CR>')
-      require('neo-tree').setup {
-        close_if_last_window = false, -- Close Neo-tree if it is the last window left in the tab
-        popup_border_style = '', -- or "" to use 'winborder' on Neovim v0.11+
-        clipboard = {
-          sync = 'none', -- or "global"/"universal" to share a clipboard for each/all Neovim instance(s), respectively
+      require('oil').setup {
+        default_file_explorer = true,
+        view_options = {
+          show_hidden = true,
         },
-        enable_git_status = true,
-        enable_diagnostics = true,
-        open_files_do_not_replace_types = { 'trouble', 'qf' }, -- when opening files, do not use windows containing these filetypes or buftypes
-        open_files_using_relative_paths = false,
-        open_files_in_last_window = true,
-        sort_case_insensitive = false, -- used when sorting files and directories in the tree
-        sort_function = nil, -- use a custom function for sorting files and directories in the tree
-        -- sort_function = function (a,b)
-        --       if a.type == b.type then
-        --           return a.path > b.path
-        --       else
-        --           return a.type > b.type
-        --       end
-        --   end , -- this sorts files and directories descendantly
-        default_component_configs = {
-          container = {
-            enable_character_fade = true,
-          },
-          indent = {
-            indent_size = 2,
-            padding = 1, -- extra padding on left hand side
-            -- indent guides
-            with_markers = true,
-            indent_marker = '│',
-            last_indent_marker = '└',
-            highlight = 'NeoTreeIndentMarker',
-            -- expander config, needed for nesting files
-            with_expanders = nil, -- if nil and file nesting is enabled, will enable expanders
-            expander_collapsed = '',
-            expander_expanded = '',
-            expander_highlight = 'NeoTreeExpander',
-          },
-          icon = {
-            folder_closed = '',
-            folder_open = '',
-            folder_empty = '󰜌',
-            provider = function(icon, node, state) -- default icon provider utilizes nvim-web-devicons if available
-              if node.type == 'file' or node.type == 'terminal' then
-                local success, web_devicons = pcall(require, 'nvim-web-devicons')
-                local name = node.type == 'terminal' and 'terminal' or node.name
-                if success then
-                  local devicon, hl = web_devicons.get_icon(name)
-                  icon.text = devicon or icon.text
-                  icon.highlight = hl or icon.highlight
-                end
+        lsp_file_methods = {
+          autosave_changes = false,
+        },
+        keymaps = {
+          ['<CR>'] = function()
+            local oil = require 'oil'
+            local entry = oil.get_cursor_entry()
+            if not entry then
+              return
+            end
+            if entry.type == 'directory' then
+              local was_fixed = vim.wo.winfixbuf
+              vim.wo.winfixbuf = false
+              oil.select()
+              if was_fixed then
+                local id
+                id = vim.api.nvim_create_autocmd('BufEnter', {
+                  once = true,
+                  callback = function()
+                    vim.wo.winfixbuf = true
+                  end,
+                })
               end
-            end,
-            -- The next two settings are only a fallback, if you use nvim-web-devicons and configure default icons there
-            -- then these will never be used.
-            default = '*',
-            highlight = 'NeoTreeFileIcon',
-            use_filtered_colors = true, -- Whether to use a different highlight when the file is filtered (hidden, dotfile, etc.).
-          },
-          modified = {
-            symbol = '[+]',
-            highlight = 'NeoTreeModified',
-          },
-          name = {
-            trailing_slash = false,
-            use_filtered_colors = true, -- Whether to use a different highlight when the file is filtered (hidden, dotfile, etc.).
-            use_git_status_colors = true,
-            highlight = 'NeoTreeFileName',
-          },
-          git_status = {
-            symbols = {
-              -- Change type
-              added = '', -- or "✚"
-              modified = '', -- or ""
-              deleted = '✖', -- this can only be used in the git_status source
-              renamed = '󰁕', -- this can only be used in the git_status source
-              -- Status type
-              untracked = '',
-              ignored = '',
-              unstaged = '󰄱',
-              staged = '',
-              conflict = '',
-            },
-          },
-          -- If you don't want to use these columns, you can set `enabled = false` for each of them individually
-          file_size = {
-            enabled = true,
-            width = 12, -- width of the column
-            required_width = 64, -- min width of window required to show this column
-          },
-          type = {
-            enabled = true,
-            width = 10, -- width of the column
-            required_width = 122, -- min width of window required to show this column
-          },
-          last_modified = {
-            enabled = true,
-            width = 20, -- width of the column
-            required_width = 88, -- min width of window required to show this column
-          },
-          created = {
-            enabled = true,
-            width = 20, -- width of the column
-            required_width = 110, -- min width of window required to show this column
-          },
-          symlink_target = {
-            enabled = false,
-          },
-        },
-        -- A list of functions, each representing a global custom command
-        -- that will be available in all sources (if not overridden in `opts[source_name].commands`)
-        -- see `:h neo-tree-custom-commands-global`
-        commands = {},
-        window = {
-          position = 'float',
-          -- width = 40,
-          mapping_options = {
-            noremap = true,
-            nowait = true,
-          },
-          mappings = {
-            ['<space>'] = {
-              'toggle_node',
-              nowait = false, -- disable `nowait` if you have existing combos starting with this char that you want to use
-            },
-            ['<2-LeftMouse>'] = 'open',
-            ['<cr>'] = 'open',
-            ['<esc>'] = 'cancel', -- close preview or floating neo-tree window
-            ['P'] = {
-              'toggle_preview',
-              config = {
-                use_float = true,
-                use_snacks_image = true,
-                use_image_nvim = true,
-              },
-            },
-            -- Read `# Preview Mode` for more information
-            ['l'] = 'focus_preview',
-            ['S'] = 'open_split',
-            ['s'] = 'open_vsplit',
-            -- ["S"] = "split_with_window_picker",
-            -- ["s"] = "vsplit_with_window_picker",
-            ['t'] = 'open_tabnew',
-            -- ["<cr>"] = "open_drop",
-            -- ["t"] = "open_tab_drop",
-            ['w'] = 'open_with_window_picker',
-            --["P"] = "toggle_preview", -- enter preview mode, which shows the current node without focusing
-            ['C'] = 'close_node',
-            -- ['C'] = 'close_all_subnodes',
-            ['z'] = 'close_all_nodes',
-            --["Z"] = "expand_all_nodes",
-            --["Z"] = "expand_all_subnodes",
-            ['a'] = {
-              'add',
-              -- this command supports BASH style brace expansion ("x{a,b,c}" -> xa,xb,xc). see `:h neo-tree-file-actions` for details
-              -- some commands may take optional config options, see `:h neo-tree-mappings` for details
-              config = {
-                show_path = 'none', -- "none", "relative", "absolute"
-              },
-            },
-            ['A'] = 'add_directory', -- also accepts the optional config.show_path option like "add". this also supports BASH style brace expansion.
-            ['d'] = 'delete',
-            ['r'] = 'rename',
-            -- ['b'] = 'rename_basename', -- conflicting with <leader>b to toggle open/closed
-            ['y'] = 'copy_to_clipboard',
-            ['x'] = 'cut_to_clipboard',
-            ['p'] = 'paste_from_clipboard',
-            -- ['<C-r>'] = 'clear_clipboard', -- a warning is saying this is invalid
-            ['c'] = 'copy', -- takes text input for destination, also accepts the optional config.show_path option like "add":
-            -- ["c"] = {
-            --  "copy",
-            --  config = {
-            --    show_path = "none" -- "none", "relative", "absolute"
-            --  }
-            --}
-            ['m'] = 'move', -- takes text input for destination, also accepts the optional config.show_path option like "add".
-            ['q'] = 'close_window',
-            ['R'] = 'refresh',
-            ['?'] = 'show_help',
-            ['<'] = 'prev_source',
-            ['>'] = 'next_source',
-            ['i'] = 'show_file_details',
-            -- ["i"] = {
-            --   "show_file_details",
-            --   -- format strings of the timestamps shown for date created and last modified (see `:h os.date()`)
-            --   -- both options accept a string or a function that takes in the date in seconds and returns a string to display
-            --   -- config = {
-            --   --   created_format = "%Y-%m-%d %I:%M %p",
-            --   --   modified_format = "relative", -- equivalent to the line below
-            --   --   modified_format = function(seconds) return require('neo-tree.utils').relative_date(seconds) end
-            --   -- }
-            -- },
-          },
-        },
-        nesting_rules = {},
-        filesystem = {
-          filtered_items = {
-            visible = true, -- when true, they will just be displayed differently than normal items
-            hide_dotfiles = false,
-            hide_gitignored = true,
-            hide_ignored = true, -- hide files that are ignored by other gitignore-like files
-            -- other gitignore-like files, in descending order of precedence.
-            ignore_files = {
-              '.neotreeignore',
-              '.ignore',
-              -- ".rgignore"
-            },
-            hide_hidden = true, -- only works on Windows for hidden files/directories
-            hide_by_name = {
-              --"node_modules"
-            },
-            hide_by_pattern = { -- uses glob style patterns
-              --"*.meta",
-              --"*/src/*/tsconfig.json",
-            },
-            always_show = { -- remains visible even if other settings would normally hide it
-              --".gitignored",
-            },
-            always_show_by_pattern = { -- uses glob style patterns
-              --".env*",
-            },
-            never_show = { -- remains hidden even if visible is toggled to true, this overrides always_show
-              '.DS_Store',
-              --"thumbs.db"
-            },
-            never_show_by_pattern = { -- uses glob style patterns
-              --".null-ls_*",
-            },
-          },
-          follow_current_file = {
-            enabled = false, -- This will find and focus the file in the active buffer every time
-            --               -- the current file is changed while the tree is open.
-            leave_dirs_open = false, -- `false` closes auto expanded dirs, such as with `:Neotree reveal`
-          },
-          group_empty_dirs = false, -- when true, empty folders will be grouped together
-          hijack_netrw_behavior = 'open_default', -- netrw disabled, opening a directory opens neo-tree
-          -- in whatever position is specified in window.position
-          -- "open_current",  -- netrw disabled, opening a directory opens within the
-          -- window like netrw would, regardless of window.position
-          -- "disabled",    -- netrw left alone, neo-tree does not handle opening dirs
-          use_libuv_file_watcher = false, -- This will use the OS level file watchers to detect changes
-          -- instead of relying on nvim autocmd events.
-          window = {
-            mappings = {
-              -- ['<bs>'] = 'navigate_up',
-              ['.'] = 'set_root',
-              ['H'] = 'toggle_hidden',
-              ['/'] = 'none',
-              -- ['/'] = 'fuzzy_finder',
-              -- ['D'] = 'fuzzy_finder_directory',
-              -- ['#'] = 'fuzzy_sorter', -- fuzzy sorting using the fzy algorithm
-              -- ["D"] = "fuzzy_sorter_directory",
-              ['f'] = 'filter_on_submit',
-              ['<c-x>'] = 'clear_filter',
-              ['[g'] = 'prev_git_modified',
-              [']g'] = 'next_git_modified',
-              ['o'] = {
-                'show_help',
-                nowait = false,
-                config = { title = 'Order by', prefix_key = 'o' },
-              },
-              ['oc'] = { 'order_by_created', nowait = false },
-              ['od'] = { 'order_by_diagnostics', nowait = false },
-              ['og'] = { 'order_by_git_status', nowait = false },
-              ['om'] = { 'order_by_modified', nowait = false },
-              ['on'] = { 'order_by_name', nowait = false },
-              ['os'] = { 'order_by_size', nowait = false },
-              ['ot'] = { 'order_by_type', nowait = false },
-              -- ['<key>'] = function(state) ... end,
-            },
-            fuzzy_finder_mappings = { -- define keymaps for filter popup window in fuzzy_finder_mode
-              ['<down>'] = 'move_cursor_down',
-              ['<C-n>'] = 'move_cursor_down',
-              ['<up>'] = 'move_cursor_up',
-              ['<C-p>'] = 'move_cursor_up',
-              ['<esc>'] = 'close',
-              ['<S-CR>'] = 'close_keep_filter',
-              ['<C-CR>'] = 'close_clear_filter',
-              ['<C-w>'] = { '<C-S-w>', raw = true },
-              {
-                -- normal mode mappings
-                n = {
-                  ['j'] = 'move_cursor_down',
-                  ['k'] = 'move_cursor_up',
-                  ['<S-CR>'] = 'close_keep_filter',
-                  ['<C-CR>'] = 'close_clear_filter',
-                  ['<esc>'] = 'close',
-                },
-              },
-              -- ["<esc>"] = "noop", -- if you want to use normal mode
-              -- ["key"] = function(state, scroll_padding) ... end,
-            },
-          },
-
-          commands = {}, -- Add a custom command or override a global one using the same function name
-        },
-        buffers = {
-          follow_current_file = {
-            enabled = true, -- This will find and focus the file in the active buffer every time
-            --              -- the current file is changed while the tree is open.
-            leave_dirs_open = false, -- `false` closes auto expanded dirs, such as with `:Neotree reveal`
-          },
-          group_empty_dirs = true, -- when true, empty folders will be grouped together
-          show_unloaded = true,
-          window = {
-            mappings = {
-              ['d'] = 'buffer_delete',
-              ['bd'] = 'buffer_delete',
-              ['<bs>'] = 'navigate_up',
-              ['.'] = 'set_root',
-              ['o'] = {
-                'show_help',
-                nowait = false,
-                config = { title = 'Order by', prefix_key = 'o' },
-              },
-              ['oc'] = { 'order_by_created', nowait = false },
-              ['od'] = { 'order_by_diagnostics', nowait = false },
-              ['om'] = { 'order_by_modified', nowait = false },
-              ['on'] = { 'order_by_name', nowait = false },
-              ['os'] = { 'order_by_size', nowait = false },
-              ['ot'] = { 'order_by_type', nowait = false },
-            },
-          },
-        },
-        git_status = {
-          window = {
-            position = 'float',
-            mappings = {
-              ['A'] = 'git_add_all',
-              ['gu'] = 'git_unstage_file',
-              ['gU'] = 'git_undo_last_commit',
-              ['ga'] = 'git_add_file',
-              ['gr'] = 'git_revert_file',
-              ['gc'] = 'git_commit',
-              ['gp'] = 'git_push',
-              ['gg'] = 'git_commit_and_push',
-              ['o'] = {
-                'show_help',
-                nowait = false,
-                config = { title = 'Order by', prefix_key = 'o' },
-              },
-              ['oc'] = { 'order_by_created', nowait = false },
-              ['od'] = { 'order_by_diagnostics', nowait = false },
-              ['om'] = { 'order_by_modified', nowait = false },
-              ['on'] = { 'order_by_name', nowait = false },
-              ['os'] = { 'order_by_size', nowait = false },
-              ['ot'] = { 'order_by_type', nowait = false },
-            },
-          },
+            else
+              local oil_win = vim.api.nvim_get_current_win()
+              if vim.w[oil_win].oil_sidebar then
+                local dir = oil.get_current_dir()
+                local filepath = dir .. entry.name
+                local prev_win = vim.fn.win_getid(vim.fn.winnr '#')
+                if prev_win ~= 0 and prev_win ~= oil_win then
+                  vim.api.nvim_set_current_win(prev_win)
+                else
+                  local wins = vim.api.nvim_list_wins()
+                  local prev_win = nil
+                  for _, w in ipairs(wins) do
+                    if w ~= oil_win then
+                      prev_win = w
+                      break
+                    end
+                  end
+                  if prev_win then
+                    vim.api.nvim_set_current_win(prev_win)
+                  else
+                    vim.cmd 'leftabove vsplit'
+                  end
+                end
+                vim.cmd('edit ' .. vim.fn.fnameescape(filepath))
+              else
+                oil.select()
+              end
+            end
+          end,
         },
       }
-    end,
-  },
-  {
-    'antosha417/nvim-lsp-file-operations',
-    dependencies = {
-      'nvim-lua/plenary.nvim',
-      'nvim-neo-tree/neo-tree.nvim', -- makes sure that this loads after Neo-tree.
-    },
-    config = function()
-      require('lsp-file-operations').setup()
+      local function oil_width()
+        return math.min(59, math.max(40, math.floor(vim.o.columns / 3)))
+      end
+      local function toggle_oil_sidebar()
+        for _, win in ipairs(vim.api.nvim_list_wins()) do
+          if vim.w[win].oil_sidebar then
+            if vim.api.nvim_get_current_win() == win then
+              vim.api.nvim_win_close(win, true)
+            else
+              vim.api.nvim_set_current_win(win)
+            end
+            return
+          end
+        end
+        vim.cmd('botright ' .. oil_width() .. 'vsplit')
+        require('oil').open()
+        vim.w.oil_sidebar = true
+        vim.wo.winfixbuf = true
+        local sidebar_win = vim.api.nvim_get_current_win()
+        local function set_sidebar_ctrl_o(buf)
+          vim.keymap.set('n', '<C-o>', function()
+            local prev_win = vim.fn.win_getid(vim.fn.winnr '#')
+            if prev_win ~= 0 and prev_win ~= sidebar_win then
+              vim.api.nvim_set_current_win(prev_win)
+              local key = vim.api.nvim_replace_termcodes('<C-o>', true, false, true)
+              vim.api.nvim_feedkeys(key, 'n', false)
+            end
+          end, { buffer = buf })
+        end
+        set_sidebar_ctrl_o(vim.api.nvim_get_current_buf())
+        vim.api.nvim_create_autocmd('BufEnter', {
+          callback = function(args)
+            if vim.api.nvim_get_current_win() == sidebar_win then
+              set_sidebar_ctrl_o(args.buf)
+            end
+          end,
+        })
+      end
+      vim.api.nvim_create_autocmd('VimResized', {
+        callback = function()
+          for _, win in ipairs(vim.api.nvim_list_wins()) do
+            if vim.w[win].oil_sidebar then
+              vim.api.nvim_win_set_width(win, oil_width())
+            end
+          end
+        end,
+      })
+      -- Prevent oil buffers from leaking into non-sidebar windows
+      -- (e.g. when closing all buffers causes neovim to show a fallback).
+      -- Skip during startup: oil opened from a directory arg (`nvim .`) is
+      -- legitimate, and the fallback leak only happens mid-session.
+      vim.api.nvim_create_autocmd('BufEnter', {
+        pattern = 'oil://*',
+        callback = function()
+          if vim.v.vim_did_enter == 0 then
+            return
+          end
+          local win = vim.api.nvim_get_current_win()
+          if not vim.w[win].oil_sidebar and not vim.w[win].oil_opened then
+            vim.defer_fn(function()
+              if
+                vim.api.nvim_win_is_valid(win)
+                and vim.bo[vim.api.nvim_win_get_buf(win)].filetype == 'oil'
+                and not vim.w[win].oil_sidebar
+                and not vim.w[win].oil_opened
+              then
+                vim.cmd 'enew'
+              end
+            end, 0)
+          end
+        end,
+      })
+      -- Keep the oil sidebar pinned to oil: if another buffer (e.g. a file
+      -- opened via Telescope while the sidebar was focused) lands in the
+      -- sidebar window, relocate it to a real editing window and restore oil.
+      vim.api.nvim_create_autocmd('BufEnter', {
+        callback = function(args)
+          local win = vim.api.nvim_get_current_win()
+          if not vim.w[win].oil_sidebar then
+            return
+          end
+          if vim.bo[args.buf].filetype == 'oil' then
+            -- oil's own directory navigation; remember it so we can restore
+            -- the exact directory rather than re-opening at cwd.
+            vim.w[win].sidebar_oil_buf = args.buf
+            return
+          end
+          local leaked = args.buf
+          local function is_editable(w)
+            return w ~= win and vim.api.nvim_win_is_valid(w) and not vim.w[w].oil_sidebar and vim.api.nvim_win_get_config(w).relative == ''
+          end
+          vim.schedule(function()
+            if not vim.api.nvim_win_is_valid(win) or not vim.api.nvim_buf_is_valid(leaked) then
+              return
+            end
+            -- restore oil in the sidebar (preserve the directory if we can)
+            local oil_buf = vim.w[win].sidebar_oil_buf
+            if oil_buf and vim.api.nvim_buf_is_valid(oil_buf) then
+              vim.api.nvim_win_set_buf(win, oil_buf)
+            else
+              vim.api.nvim_win_call(win, function()
+                require('oil').open()
+              end)
+            end
+            -- pick a target editing window: previous window, else first
+            -- eligible normal window, else split a new one to its left.
+            local target
+            local prev = vim.fn.win_getid(vim.fn.winnr '#')
+            if is_editable(prev) then
+              target = prev
+            else
+              for _, w in ipairs(vim.api.nvim_list_wins()) do
+                if is_editable(w) then
+                  target = w
+                  break
+                end
+              end
+            end
+            if not target then
+              vim.api.nvim_win_call(win, function()
+                vim.cmd 'leftabove vsplit'
+              end)
+              for _, w in ipairs(vim.api.nvim_list_wins()) do
+                if is_editable(w) then
+                  target = w
+                  break
+                end
+              end
+            end
+            if target then
+              vim.api.nvim_win_set_buf(target, leaked)
+              vim.api.nvim_set_current_win(target)
+            end
+            vim.api.nvim_win_set_width(win, oil_width())
+          end)
+        end,
+      })
+      vim.keymap.set('n', '<leader>e', function()
+        vim.w.oil_opened = true
+        require('oil').open()
+      end, { desc = 'Open oil in current window' })
+      vim.api.nvim_create_autocmd('BufLeave', {
+        callback = function()
+          local win = vim.api.nvim_get_current_win()
+          if not vim.w[win].oil_opened then
+            return
+          end
+          -- Don't clear on oil-to-oil navigation (selecting a directory swaps
+          -- the window to a new oil buffer, which fires BufLeave). Defer and
+          -- only drop the flag once the window has landed on a non-oil buffer,
+          -- otherwise the leak-prevention BufEnter handler wipes the directory.
+          vim.schedule(function()
+            if
+              vim.api.nvim_win_is_valid(win)
+              and vim.w[win].oil_opened
+              and vim.bo[vim.api.nvim_win_get_buf(win)].filetype ~= 'oil'
+            then
+              vim.w[win].oil_opened = nil
+            end
+          end)
+        end,
+      })
+      vim.keymap.set('n', '<leader>b', toggle_oil_sidebar, { desc = 'Toggle oil sidebar' })
     end,
   },
 
@@ -824,6 +748,12 @@ require('lazy').setup({
     end,
   },
   {
+    'tiagovla/scope.nvim',
+    config = function()
+      require('scope').setup()
+    end,
+  },
+  {
     'nvim-telescope/telescope.nvim',
     event = 'VimEnter',
     dependencies = {
@@ -893,10 +823,22 @@ require('lazy').setup({
         },
       }
 
+      -- Neovim 0.12 no longer inherits cursorline in floating windows
+      vim.api.nvim_create_autocmd('FileType', {
+        pattern = 'TelescopeResults',
+        callback = function(args)
+          local win = vim.fn.bufwinid(args.buf)
+          if win ~= -1 then
+            vim.wo[win].cursorline = true
+          end
+        end,
+      })
+
       -- Enable Telescope extensions if they are installed
       pcall(require('telescope').load_extension, 'fzf')
       pcall(require('telescope').load_extension, 'ui-select')
       pcall(require('telescope').load_extension, 'smart_history')
+      pcall(require('telescope').load_extension, 'scope')
 
       local dropdownTheme = {
         previewer = false,
@@ -1031,7 +973,7 @@ require('lazy').setup({
           vim.keymap.set('n', 'grt', function()
             builtin.lsp_type_definitions(vertical_opts)
           end, { desc = '[G]oto [T]ype Definition' })
-          vim.keymap.set('n', 'gf', vim.lsp.buf.code_action, { desc = '[G]oto [F]ixes' })
+          vim.keymap.set('n', 'grf', vim.lsp.buf.code_action, { desc = '[G]oto [F]ixes' })
 
           vim.keymap.set('n', '<Plug>OriginalGd', 'gd', { silent = true })
           vim.keymap.set('n', 'gd', function()
@@ -1219,14 +1161,14 @@ require('lazy').setup({
             -- Prevents the server from indexing massive dependency or build folders
             preferences = {
               -- Only index files that are actually imported or in the 'include' path
-              autoImportFileExcludePatterns = { 'node_modules', 'dist', 'build', '.next' },
+              autoImportFileExcludePatterns = { 'dist', 'build', '.next' },
             },
             tsserver = {
               -- Disabling the separate syntax server saves significant RAM
               useSeparateSyntaxServer = false,
               -- Tells the watcher to ignore these directories entirely
               watchOptions = {
-                excludeDirectories = { '**/node_modules', '**/dist', '**/build', '**/.next' },
+                excludeDirectories = { '**/dist', '**/build', '**/.next' },
               },
             },
           },
@@ -1246,7 +1188,7 @@ require('lazy').setup({
         'lua_ls',
         'vtsls',
         'gopls',
-        'jdtls',
+        -- 'jdtls',
         'solargraph',
       }
       for _, ls in ipairs(servers_enabled) do
@@ -1331,9 +1273,10 @@ require('lazy').setup({
         enabled = false,
       },
       sources = {
-        default = { 'lsp', 'path', 'snippets', 'lazydev' },
+        default = { 'lsp', 'path', 'snippets', 'lazydev', 'freemarker' },
         providers = {
           lazydev = { module = 'lazydev.integrations.blink', score_offset = 100 },
+          freemarker = { module = 'custom.freemarker.blink', score_offset = 50 },
         },
       },
       snippets = { preset = 'luasnip' },
@@ -1391,7 +1334,9 @@ require('lazy').setup({
         typescript = { 'prettier' },
         typescriptreact = { 'prettier' },
         html = { 'prettier' },
+        freemarker = { 'prettier' },
         json = { 'prettier' },
+        jsonc = { 'prettier' },
         css = { 'prettier' },
         scss = { 'prettier' },
         nim = { 'nimpretty' },
@@ -1451,6 +1396,276 @@ require('lazy').setup({
       require('blame').setup {}
 
       vim.keymap.set('n', '<leader>gb', '<Cmd>BlameToggle virtual<CR>')
+    end,
+  },
+  {
+    'AlexandrosAlexiou/kotlin.nvim',
+    ft = 'kotlin',
+    config = function()
+      local kotlin_lsp_dir = os.getenv 'KOTLIN_LSP_DIR'
+      if not kotlin_lsp_dir then
+        vim.notify('KOTLIN_LSP_DIR not set', vim.log.levels.ERROR)
+        return
+      end
+
+      vim.lsp.config.kotlin_ls = {
+        cmd = { kotlin_lsp_dir .. '/bin/intellij-server', '--stdio' },
+        filetypes = { 'kotlin' },
+        root_markers = { 'build.gradle', 'build.gradle.kts', 'settings.gradle', 'settings.gradle.kts', 'pom.xml' },
+      }
+      vim.lsp.enable 'kotlin_ls'
+
+      require('kotlin.autocommands').setup()
+      require('kotlin.autocommands').setup_inlay_hints {
+        inlay_hints = {
+          enabled = true,
+          parameters = true,
+          types_property = true,
+          types_variable = true,
+          function_return = true,
+          lambda_return = true,
+        },
+      }
+      require('kotlin.commands').setup()
+      require('kotlin.diagnostics').setup()
+      require('kotlin.package').setup()
+    end,
+  },
+  {
+    'sindrets/diffview.nvim',
+    config = function()
+      vim.keymap.set('n', '<leader>gs', '<Cmd>DiffviewOpen<CR>')
+
+      -- Lua
+      local actions = require 'diffview.actions'
+
+      require('diffview').setup {
+        diff_binaries = false, -- Show diffs for binaries
+        enhanced_diff_hl = false, -- See |diffview-config-enhanced_diff_hl|
+        git_cmd = { 'git' }, -- The git executable followed by default args.
+        hg_cmd = { 'hg' }, -- The hg executable followed by default args.
+        use_icons = false, -- Requires nvim-web-devicons
+        show_help_hints = true, -- Show hints for how to open the help panel
+        watch_index = true, -- Update views and index buffers when the git index changes.
+        icons = { -- Only applies when use_icons is true.
+          folder_closed = '',
+          folder_open = '',
+        },
+        signs = {
+          fold_closed = '',
+          fold_open = '',
+          done = '✓',
+        },
+        view = {
+          -- Configure the layout and behavior of different types of views.
+          -- Available layouts:
+          --  'diff1_plain'
+          --    |'diff2_horizontal'
+          --    |'diff2_vertical'
+          --    |'diff3_horizontal'
+          --    |'diff3_vertical'
+          --    |'diff3_mixed'
+          --    |'diff4_mixed'
+          -- For more info, see |diffview-config-view.x.layout|.
+          default = {
+            -- Config for changed files, and staged files in diff views.
+            layout = 'diff2_horizontal',
+            disable_diagnostics = false, -- Temporarily disable diagnostics for diff buffers while in the view.
+            winbar_info = false, -- See |diffview-config-view.x.winbar_info|
+          },
+          merge_tool = {
+            -- Config for conflicted files in diff views during a merge or rebase.
+            layout = 'diff3_horizontal',
+            disable_diagnostics = true, -- Temporarily disable diagnostics for diff buffers while in the view.
+            winbar_info = true, -- See |diffview-config-view.x.winbar_info|
+          },
+          file_history = {
+            -- Config for changed files in file history views.
+            layout = 'diff2_horizontal',
+            disable_diagnostics = false, -- Temporarily disable diagnostics for diff buffers while in the view.
+            winbar_info = false, -- See |diffview-config-view.x.winbar_info|
+          },
+        },
+        file_panel = {
+          listing_style = 'tree', -- One of 'list' or 'tree'
+          tree_options = { -- Only applies when listing_style is 'tree'
+            flatten_dirs = true, -- Flatten dirs that only contain one single dir
+            folder_statuses = 'only_folded', -- One of 'never', 'only_folded' or 'always'.
+          },
+          win_config = { -- See |diffview-config-win_config|
+            position = 'left',
+            width = 35,
+            win_opts = {},
+          },
+        },
+        file_history_panel = {
+          log_options = { -- See |diffview-config-log_options|
+            git = {
+              single_file = {
+                diff_merges = 'combined',
+              },
+              multi_file = {
+                diff_merges = 'first-parent',
+              },
+            },
+            hg = {
+              single_file = {},
+              multi_file = {},
+            },
+          },
+          win_config = { -- See |diffview-config-win_config|
+            position = 'bottom',
+            height = 16,
+            win_opts = {},
+          },
+        },
+        commit_log_panel = {
+          win_config = {}, -- See |diffview-config-win_config|
+        },
+        default_args = { -- Default args prepended to the arg-list for the listed commands
+          DiffviewOpen = {},
+          DiffviewFileHistory = {},
+        },
+        hooks = {}, -- See |diffview-config-hooks|
+        keymaps = {
+          disable_defaults = false, -- Disable the default keymaps
+          view = {
+            -- The `view` bindings are active in the diff buffers, only when the current
+            -- tabpage is a Diffview.
+            { 'n', '<tab>', actions.select_next_entry, { desc = 'Open the diff for the next file' } },
+            { 'n', '<s-tab>', actions.select_prev_entry, { desc = 'Open the diff for the previous file' } },
+            { 'n', '[F', actions.select_first_entry, { desc = 'Open the diff for the first file' } },
+            { 'n', ']F', actions.select_last_entry, { desc = 'Open the diff for the last file' } },
+            { 'n', 'gf', actions.goto_file_edit, { desc = 'Open the file in the previous tabpage' } },
+            { 'n', '<C-w><C-f>', actions.goto_file_split, { desc = 'Open the file in a new split' } },
+            { 'n', '<C-w>gf', actions.goto_file_tab, { desc = 'Open the file in a new tabpage' } },
+            { 'n', '<leader>e', actions.focus_files, { desc = 'Bring focus to the file panel' } },
+            { 'n', '<leader>b', actions.toggle_files, { desc = 'Toggle the file panel.' } },
+            { 'n', 'g<C-x>', actions.cycle_layout, { desc = 'Cycle through available layouts.' } },
+            { 'n', '[x', actions.prev_conflict, { desc = 'In the merge-tool: jump to the previous conflict' } },
+            { 'n', ']x', actions.next_conflict, { desc = 'In the merge-tool: jump to the next conflict' } },
+            { 'n', '<leader>co', actions.conflict_choose 'ours', { desc = 'Choose the OURS version of a conflict' } },
+            { 'n', '<leader>ct', actions.conflict_choose 'theirs', { desc = 'Choose the THEIRS version of a conflict' } },
+            { 'n', '<leader>cb', actions.conflict_choose 'base', { desc = 'Choose the BASE version of a conflict' } },
+            { 'n', '<leader>ca', actions.conflict_choose 'all', { desc = 'Choose all the versions of a conflict' } },
+            { 'n', 'dx', actions.conflict_choose 'none', { desc = 'Delete the conflict region' } },
+            { 'n', '<leader>cO', actions.conflict_choose_all 'ours', { desc = 'Choose the OURS version of a conflict for the whole file' } },
+            { 'n', '<leader>cT', actions.conflict_choose_all 'theirs', { desc = 'Choose the THEIRS version of a conflict for the whole file' } },
+            { 'n', '<leader>cB', actions.conflict_choose_all 'base', { desc = 'Choose the BASE version of a conflict for the whole file' } },
+            { 'n', '<leader>cA', actions.conflict_choose_all 'all', { desc = 'Choose all the versions of a conflict for the whole file' } },
+            { 'n', 'dX', actions.conflict_choose_all 'none', { desc = 'Delete the conflict region for the whole file' } },
+          },
+          diff1 = {
+            -- Mappings in single window diff layouts
+            { 'n', 'g?', actions.help { 'view', 'diff1' }, { desc = 'Open the help panel' } },
+          },
+          diff2 = {
+            -- Mappings in 2-way diff layouts
+            { 'n', 'g?', actions.help { 'view', 'diff2' }, { desc = 'Open the help panel' } },
+          },
+          diff3 = {
+            -- Mappings in 3-way diff layouts
+            { { 'n', 'x' }, '2do', actions.diffget 'ours', { desc = 'Obtain the diff hunk from the OURS version of the file' } },
+            { { 'n', 'x' }, '3do', actions.diffget 'theirs', { desc = 'Obtain the diff hunk from the THEIRS version of the file' } },
+            { 'n', 'g?', actions.help { 'view', 'diff3' }, { desc = 'Open the help panel' } },
+          },
+          diff4 = {
+            -- Mappings in 4-way diff layouts
+            { { 'n', 'x' }, '1do', actions.diffget 'base', { desc = 'Obtain the diff hunk from the BASE version of the file' } },
+            { { 'n', 'x' }, '2do', actions.diffget 'ours', { desc = 'Obtain the diff hunk from the OURS version of the file' } },
+            { { 'n', 'x' }, '3do', actions.diffget 'theirs', { desc = 'Obtain the diff hunk from the THEIRS version of the file' } },
+            { 'n', 'g?', actions.help { 'view', 'diff4' }, { desc = 'Open the help panel' } },
+          },
+          file_panel = {
+            { 'n', 'j', actions.next_entry, { desc = 'Bring the cursor to the next file entry' } },
+            { 'n', '<down>', actions.next_entry, { desc = 'Bring the cursor to the next file entry' } },
+            { 'n', 'k', actions.prev_entry, { desc = 'Bring the cursor to the previous file entry' } },
+            { 'n', '<up>', actions.prev_entry, { desc = 'Bring the cursor to the previous file entry' } },
+            { 'n', '<cr>', actions.select_entry, { desc = 'Open the diff for the selected entry' } },
+            { 'n', 'o', actions.select_entry, { desc = 'Open the diff for the selected entry' } },
+            { 'n', 'l', actions.select_entry, { desc = 'Open the diff for the selected entry' } },
+            { 'n', '<2-LeftMouse>', actions.select_entry, { desc = 'Open the diff for the selected entry' } },
+            { 'n', '-', actions.toggle_stage_entry, { desc = 'Stage / unstage the selected entry' } },
+            { 'n', 's', actions.toggle_stage_entry, { desc = 'Stage / unstage the selected entry' } },
+            { 'n', 'S', actions.stage_all, { desc = 'Stage all entries' } },
+            { 'n', 'U', actions.unstage_all, { desc = 'Unstage all entries' } },
+            { 'n', 'X', actions.restore_entry, { desc = 'Restore entry to the state on the left side' } },
+            { 'n', 'L', actions.open_commit_log, { desc = 'Open the commit log panel' } },
+            { 'n', 'zo', actions.open_fold, { desc = 'Expand fold' } },
+            { 'n', 'h', actions.close_fold, { desc = 'Collapse fold' } },
+            { 'n', 'zc', actions.close_fold, { desc = 'Collapse fold' } },
+            { 'n', 'za', actions.toggle_fold, { desc = 'Toggle fold' } },
+            { 'n', 'zR', actions.open_all_folds, { desc = 'Expand all folds' } },
+            { 'n', 'zM', actions.close_all_folds, { desc = 'Collapse all folds' } },
+            { 'n', '<c-b>', actions.scroll_view(-0.25), { desc = 'Scroll the view up' } },
+            { 'n', '<c-f>', actions.scroll_view(0.25), { desc = 'Scroll the view down' } },
+            { 'n', '<tab>', actions.select_next_entry, { desc = 'Open the diff for the next file' } },
+            { 'n', '<s-tab>', actions.select_prev_entry, { desc = 'Open the diff for the previous file' } },
+            { 'n', '[F', actions.select_first_entry, { desc = 'Open the diff for the first file' } },
+            { 'n', ']F', actions.select_last_entry, { desc = 'Open the diff for the last file' } },
+            { 'n', 'gf', actions.goto_file_edit, { desc = 'Open the file in the previous tabpage' } },
+            { 'n', '<C-w><C-f>', actions.goto_file_split, { desc = 'Open the file in a new split' } },
+            { 'n', '<C-w>gf', actions.goto_file_tab, { desc = 'Open the file in a new tabpage' } },
+            { 'n', 'i', actions.listing_style, { desc = "Toggle between 'list' and 'tree' views" } },
+            { 'n', 'f', actions.toggle_flatten_dirs, { desc = 'Flatten empty subdirectories in tree listing style' } },
+            { 'n', 'R', actions.refresh_files, { desc = 'Update stats and entries in the file list' } },
+            { 'n', '<leader>e', actions.focus_files, { desc = 'Bring focus to the file panel' } },
+            { 'n', '<leader>b', actions.toggle_files, { desc = 'Toggle the file panel' } },
+            { 'n', 'g<C-x>', actions.cycle_layout, { desc = 'Cycle available layouts' } },
+            { 'n', '[x', actions.prev_conflict, { desc = 'Go to the previous conflict' } },
+            { 'n', ']x', actions.next_conflict, { desc = 'Go to the next conflict' } },
+            { 'n', 'g?', actions.help 'file_panel', { desc = 'Open the help panel' } },
+            { 'n', '<leader>cO', actions.conflict_choose_all 'ours', { desc = 'Choose the OURS version of a conflict for the whole file' } },
+            { 'n', '<leader>cT', actions.conflict_choose_all 'theirs', { desc = 'Choose the THEIRS version of a conflict for the whole file' } },
+            { 'n', '<leader>cB', actions.conflict_choose_all 'base', { desc = 'Choose the BASE version of a conflict for the whole file' } },
+            { 'n', '<leader>cA', actions.conflict_choose_all 'all', { desc = 'Choose all the versions of a conflict for the whole file' } },
+            { 'n', 'dX', actions.conflict_choose_all 'none', { desc = 'Delete the conflict region for the whole file' } },
+          },
+          file_history_panel = {
+            { 'n', 'g!', actions.options, { desc = 'Open the option panel' } },
+            { 'n', '<C-A-d>', actions.open_in_diffview, { desc = 'Open the entry under the cursor in a diffview' } },
+            { 'n', 'y', actions.copy_hash, { desc = 'Copy the commit hash of the entry under the cursor' } },
+            { 'n', 'L', actions.open_commit_log, { desc = 'Show commit details' } },
+            { 'n', 'X', actions.restore_entry, { desc = 'Restore file to the state from the selected entry' } },
+            { 'n', 'zo', actions.open_fold, { desc = 'Expand fold' } },
+            { 'n', 'zc', actions.close_fold, { desc = 'Collapse fold' } },
+            { 'n', 'h', actions.close_fold, { desc = 'Collapse fold' } },
+            { 'n', 'za', actions.toggle_fold, { desc = 'Toggle fold' } },
+            { 'n', 'zR', actions.open_all_folds, { desc = 'Expand all folds' } },
+            { 'n', 'zM', actions.close_all_folds, { desc = 'Collapse all folds' } },
+            { 'n', 'j', actions.next_entry, { desc = 'Bring the cursor to the next file entry' } },
+            { 'n', '<down>', actions.next_entry, { desc = 'Bring the cursor to the next file entry' } },
+            { 'n', 'k', actions.prev_entry, { desc = 'Bring the cursor to the previous file entry' } },
+            { 'n', '<up>', actions.prev_entry, { desc = 'Bring the cursor to the previous file entry' } },
+            { 'n', '<cr>', actions.select_entry, { desc = 'Open the diff for the selected entry' } },
+            { 'n', 'o', actions.select_entry, { desc = 'Open the diff for the selected entry' } },
+            { 'n', 'l', actions.select_entry, { desc = 'Open the diff for the selected entry' } },
+            { 'n', '<2-LeftMouse>', actions.select_entry, { desc = 'Open the diff for the selected entry' } },
+            { 'n', '<c-b>', actions.scroll_view(-0.25), { desc = 'Scroll the view up' } },
+            { 'n', '<c-f>', actions.scroll_view(0.25), { desc = 'Scroll the view down' } },
+            { 'n', '<tab>', actions.select_next_entry, { desc = 'Open the diff for the next file' } },
+            { 'n', '<s-tab>', actions.select_prev_entry, { desc = 'Open the diff for the previous file' } },
+            { 'n', '[F', actions.select_first_entry, { desc = 'Open the diff for the first file' } },
+            { 'n', ']F', actions.select_last_entry, { desc = 'Open the diff for the last file' } },
+            { 'n', 'gf', actions.goto_file_edit, { desc = 'Open the file in the previous tabpage' } },
+            { 'n', '<C-w><C-f>', actions.goto_file_split, { desc = 'Open the file in a new split' } },
+            { 'n', '<C-w>gf', actions.goto_file_tab, { desc = 'Open the file in a new tabpage' } },
+            { 'n', '<leader>e', actions.focus_files, { desc = 'Bring focus to the file panel' } },
+            { 'n', '<leader>b', actions.toggle_files, { desc = 'Toggle the file panel' } },
+            { 'n', 'g<C-x>', actions.cycle_layout, { desc = 'Cycle available layouts' } },
+            { 'n', 'g?', actions.help 'file_history_panel', { desc = 'Open the help panel' } },
+          },
+          option_panel = {
+            { 'n', '<tab>', actions.select_entry, { desc = 'Change the current option' } },
+            { 'n', 'q', actions.close, { desc = 'Close the panel' } },
+            { 'n', 'g?', actions.help 'option_panel', { desc = 'Open the help panel' } },
+          },
+          help_panel = {
+            { 'n', 'q', actions.close, { desc = 'Close help menu' } },
+            { 'n', '<esc>', actions.close, { desc = 'Close help menu' } },
+          },
+        },
+      }
     end,
   },
   { -- Highlight, edit, and navigate code
@@ -1582,3 +1797,18 @@ function myfoldtext()
   return line
 end
 vim.o.foldtext = 'v:lua.myfoldtext()'
+
+vim.api.nvim_create_autocmd('OptionSet', {
+  pattern = 'diff',
+  callback = function()
+    if vim.o.diff then
+      vim.o.signcolumn = 'auto:1' -- at most 1 cell
+    else
+      vim.o.signcolumn = 'auto'
+    end
+  end,
+})
+
+vim.keymap.set('n', '<leader>gs', '<cmd>:enew | :silent read! git status<CR>', { desc = '[G]it [S]tatus unified diff' })
+
+require 'call-graph'
