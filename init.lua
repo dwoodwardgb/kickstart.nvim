@@ -46,6 +46,7 @@ vim.filetype.add {
     ftl = 'freemarker',
     ftlh = 'freemarker',
     mdc = 'markdown',
+    astro = 'astro',
   },
 }
 
@@ -71,7 +72,7 @@ vim.keymap.set('n', '<leader>w', function()
 
   if other_buf then
     for _, win in ipairs(wins) do
-      if vim.api.nvim_win_get_buf(win) == buf and not vim.w[win].oil_sidebar then
+      if vim.api.nvim_win_get_buf(win) == buf then
         vim.api.nvim_win_set_buf(win, other_buf)
       end
     end
@@ -92,7 +93,7 @@ vim.keymap.set('n', '<leader>w', function()
 end, { desc = 'Close current buffer ([W]indow)' })
 vim.keymap.set('n', '<leader>W', function()
   -- Resolve the "current" buffer from the focused window, but if focus is in a
-  -- special window (oil sidebar, terminal, floating/which-key, etc.) fall back
+  -- special window (nvim-tree sidebar, terminal, floating/which-key, etc.) fall back
   -- to a normal listed buffer so we don't accidentally keep the sidebar and
   -- delete the file you were actually editing.
   local cur = vim.api.nvim_get_current_buf()
@@ -110,10 +111,8 @@ vim.keymap.set('n', '<leader>W', function()
       if vim.bo[buf].buftype == 'terminal' then
         goto continue
       end
-      for _, win in ipairs(vim.fn.win_findbuf(buf)) do
-        if vim.w[win].oil_sidebar then
-          goto continue
-        end
+      if vim.bo[buf].filetype == 'NvimTree' then
+        goto continue
       end
       -- force = false errors on modified buffers; pcall so one unsaved buffer
       -- doesn't abort the loop and leave the rest open.
@@ -337,8 +336,7 @@ vim.api.nvim_create_autocmd('ColorScheme', {
   end,
 })
 
-function CustomizeModusTheme()
-end
+function CustomizeModusTheme() end
 
 vim.api.nvim_create_autocmd('ColorScheme', {
   pattern = 'modus',
@@ -431,232 +429,118 @@ require('lazy').setup({
       },
     },
   },
+  -- {
+  --   'axkirillov/unified.nvim',
+  --   config = function()
+  --     require('unified').setup()
+  --     vim.keymap.set('n', '<leader>gs', '<cmd>Unified<CR>', { desc = '[G]it [S]tatus unified diff' })
+  --   end,
+  -- },
   {
-    'stevearc/oil.nvim',
+    'nvim-tree/nvim-tree.lua',
+    lazy = false,
     dependencies = { 'nvim-tree/nvim-web-devicons' },
     config = function()
-      require('oil').setup {
-        default_file_explorer = true,
-        view_options = {
-          show_hidden = true,
-        },
-        lsp_file_methods = {
-          autosave_changes = false,
-        },
-        keymaps = {
-          ['<CR>'] = function()
-            local oil = require 'oil'
-            local entry = oil.get_cursor_entry()
-            if not entry then
-              return
-            end
-            if entry.type == 'directory' then
-              local was_fixed = vim.wo.winfixbuf
-              vim.wo.winfixbuf = false
-              oil.select()
-              if was_fixed then
-                local id
-                id = vim.api.nvim_create_autocmd('BufEnter', {
-                  once = true,
-                  callback = function()
-                    vim.wo.winfixbuf = true
-                  end,
-                })
-              end
-            else
-              local oil_win = vim.api.nvim_get_current_win()
-              if vim.w[oil_win].oil_sidebar then
-                local dir = oil.get_current_dir()
-                local filepath = dir .. entry.name
-                local prev_win = vim.fn.win_getid(vim.fn.winnr '#')
-                if prev_win ~= 0 and prev_win ~= oil_win then
-                  vim.api.nvim_set_current_win(prev_win)
-                else
-                  local wins = vim.api.nvim_list_wins()
-                  local prev_win = nil
-                  for _, w in ipairs(wins) do
-                    if w ~= oil_win then
-                      prev_win = w
-                      break
-                    end
-                  end
-                  if prev_win then
-                    vim.api.nvim_set_current_win(prev_win)
-                  else
-                    vim.cmd 'leftabove vsplit'
-                  end
-                end
-                vim.cmd('edit ' .. vim.fn.fnameescape(filepath))
-              else
-                oil.select()
-              end
-            end
-          end,
-        },
-      }
-      local function oil_width()
+      -- Dynamic sidebar width, carried over from the old oil sidebar.
+      local function tree_width()
         return math.min(59, math.max(40, math.floor(vim.o.columns / 3)))
       end
-      local function toggle_oil_sidebar()
-        for _, win in ipairs(vim.api.nvim_list_wins()) do
-          if vim.w[win].oil_sidebar then
-            if vim.api.nvim_get_current_win() == win then
-              vim.api.nvim_win_close(win, true)
-            else
-              vim.api.nvim_set_current_win(win)
-            end
-            return
-          end
+
+      -- netrw-mirroring keymaps. The trailing comment on each line is the
+      -- netrw key it imitates, so muscle memory transfers to bare netrw.
+      local function on_attach(bufnr)
+        local api = require 'nvim-tree.api'
+        local function opts(desc)
+          return { desc = 'nvim-tree: ' .. desc, buffer = bufnr, noremap = true, silent = true, nowait = true }
         end
-        vim.cmd('botright ' .. oil_width() .. 'vsplit')
-        require('oil').open()
-        vim.w.oil_sidebar = true
-        vim.wo.winfixbuf = true
-        local sidebar_win = vim.api.nvim_get_current_win()
-        local function set_sidebar_ctrl_o(buf)
-          vim.keymap.set('n', '<C-o>', function()
-            local prev_win = vim.fn.win_getid(vim.fn.winnr '#')
-            if prev_win ~= 0 and prev_win ~= sidebar_win then
-              vim.api.nvim_set_current_win(prev_win)
-              local key = vim.api.nvim_replace_termcodes('<C-o>', true, false, true)
-              vim.api.nvim_feedkeys(key, 'n', false)
-            end
-          end, { buffer = buf })
-        end
-        set_sidebar_ctrl_o(vim.api.nvim_get_current_buf())
-        vim.api.nvim_create_autocmd('BufEnter', {
-          callback = function(args)
-            if vim.api.nvim_get_current_win() == sidebar_win then
-              set_sidebar_ctrl_o(args.buf)
-            end
-          end,
-        })
+        local map = vim.keymap.set
+        -- navigation
+        map('n', '<CR>', api.node.open.edit, opts 'Open') -- netrw <CR>
+        map('n', 'o', api.node.open.horizontal, opts 'Open: horizontal split') -- netrw o
+        map('n', 'v', api.node.open.vertical, opts 'Open: vertical split') -- netrw v
+        map('n', 't', api.node.open.tab, opts 'Open: new tab') -- netrw t
+        map('n', 'P', api.node.open.preview, opts 'Preview') -- netrw p (p is paste here)
+        map('n', '-', api.tree.change_root_to_parent, opts 'Up a dir') -- netrw -
+        map('n', '<BS>', api.node.navigate.parent_close, opts 'Close dir')
+        map('n', 'gh', api.tree.toggle_hidden_filter, opts 'Toggle hidden') -- netrw gh
+        map('n', '<C-l>', api.tree.reload, opts 'Refresh') -- netrw <C-l>
+        -- file operations
+        map('n', 'R', api.fs.rename_full, opts 'Rename: full path') -- netrw R
+        map('n', 'r', api.fs.rename, opts 'Rename')
+        map('n', '%', api.fs.create, opts 'New file') -- netrw % (end name with / for a dir)
+        map('n', 'd', api.fs.create, opts 'New file/dir') -- netrw d
+        map('n', 'D', api.fs.remove, opts 'Delete') -- netrw D
+        map('n', 'x', api.fs.cut, opts 'Cut')
+        map('n', 'c', api.fs.copy.node, opts 'Copy')
+        map('n', 'p', api.fs.paste, opts 'Paste')
+        map('n', 'y', api.fs.copy.filename, opts 'Copy name')
+        map('n', 'Y', api.fs.copy.relative_path, opts 'Copy relative path')
+        -- misc
+        map('n', 'q', api.tree.close, opts 'Close')
+        map('n', '?', api.tree.toggle_help, opts 'Help')
       end
+
+      require('nvim-tree').setup {
+        sort = { sorter = 'case_sensitive' },
+        view = {
+          side = 'right',
+          width = tree_width,
+        },
+        renderer = { group_empty = true },
+        filters = { dotfiles = false }, -- show hidden files (matches oil's show_hidden)
+        actions = {
+          open_file = { quit_on_open = false }, -- sidebar stays open after opening a file
+        },
+        on_attach = on_attach,
+      }
+
+      local api = require 'nvim-tree.api'
+
+      -- Keep the sidebar width sane on terminal resize (old oil VimResized hack).
       vim.api.nvim_create_autocmd('VimResized', {
         callback = function()
-          for _, win in ipairs(vim.api.nvim_list_wins()) do
-            if vim.w[win].oil_sidebar then
-              vim.api.nvim_win_set_width(win, oil_width())
-            end
+          if api.tree.is_visible() then
+            api.tree.resize { width = tree_width() }
           end
         end,
       })
-      -- Prevent oil buffers from leaking into non-sidebar windows
-      -- (e.g. when closing all buffers causes neovim to show a fallback).
-      -- Skip during startup: oil opened from a directory arg (`nvim .`) is
-      -- legitimate, and the fallback leak only happens mid-session.
-      vim.api.nvim_create_autocmd('BufEnter', {
-        pattern = 'oil://*',
-        callback = function()
-          if vim.v.vim_did_enter == 0 then
-            return
-          end
-          local win = vim.api.nvim_get_current_win()
-          if not vim.w[win].oil_sidebar and not vim.w[win].oil_opened then
-            vim.defer_fn(function()
-              if
-                vim.api.nvim_win_is_valid(win)
-                and vim.bo[vim.api.nvim_win_get_buf(win)].filetype == 'oil'
-                and not vim.w[win].oil_sidebar
-                and not vim.w[win].oil_opened
-              then
-                vim.cmd 'enew'
-              end
-            end, 0)
-          end
-        end,
-      })
-      -- Keep the oil sidebar pinned to oil: if another buffer (e.g. a file
-      -- opened via Telescope while the sidebar was focused) lands in the
-      -- sidebar window, relocate it to a real editing window and restore oil.
-      vim.api.nvim_create_autocmd('BufEnter', {
-        callback = function(args)
-          local win = vim.api.nvim_get_current_win()
-          if not vim.w[win].oil_sidebar then
-            return
-          end
-          if vim.bo[args.buf].filetype == 'oil' then
-            -- oil's own directory navigation; remember it so we can restore
-            -- the exact directory rather than re-opening at cwd.
-            vim.w[win].sidebar_oil_buf = args.buf
-            return
-          end
-          local leaked = args.buf
-          local function is_editable(w)
-            return w ~= win and vim.api.nvim_win_is_valid(w) and not vim.w[w].oil_sidebar and vim.api.nvim_win_get_config(w).relative == ''
-          end
-          vim.schedule(function()
-            if not vim.api.nvim_win_is_valid(win) or not vim.api.nvim_buf_is_valid(leaked) then
-              return
-            end
-            -- restore oil in the sidebar (preserve the directory if we can)
-            local oil_buf = vim.w[win].sidebar_oil_buf
-            if oil_buf and vim.api.nvim_buf_is_valid(oil_buf) then
-              vim.api.nvim_win_set_buf(win, oil_buf)
-            else
-              vim.api.nvim_win_call(win, function()
-                require('oil').open()
-              end)
-            end
-            -- pick a target editing window: previous window, else first
-            -- eligible normal window, else split a new one to its left.
-            local target
-            local prev = vim.fn.win_getid(vim.fn.winnr '#')
-            if is_editable(prev) then
-              target = prev
-            else
-              for _, w in ipairs(vim.api.nvim_list_wins()) do
-                if is_editable(w) then
-                  target = w
-                  break
-                end
-              end
-            end
-            if not target then
-              vim.api.nvim_win_call(win, function()
-                vim.cmd 'leftabove vsplit'
-              end)
-              for _, w in ipairs(vim.api.nvim_list_wins()) do
-                if is_editable(w) then
-                  target = w
-                  break
-                end
-              end
-            end
-            if target then
-              vim.api.nvim_win_set_buf(target, leaked)
-              vim.api.nvim_set_current_win(target)
-            end
-            vim.api.nvim_win_set_width(win, oil_width())
-          end)
-        end,
-      })
+
+      -- <leader>b: 3-state toggle like the old oil sidebar — open when closed,
+      -- focus when open-but-unfocused, close when already focused.
+      vim.keymap.set('n', '<leader>b', function()
+        if not api.tree.is_visible() then
+          api.tree.open()
+        elseif api.tree.is_tree_buf(vim.api.nvim_get_current_buf()) then
+          api.tree.close()
+        else
+          api.tree.focus()
+        end
+      end, { desc = 'Toggle nvim-tree sidebar' })
+
+      -- <leader>e: reveal the current file in the tree (opens it if needed).
       vim.keymap.set('n', '<leader>e', function()
-        vim.w.oil_opened = true
-        require('oil').open()
-      end, { desc = 'Open oil in current window' })
-      vim.api.nvim_create_autocmd('BufLeave', {
-        callback = function()
-          local win = vim.api.nvim_get_current_win()
-          if not vim.w[win].oil_opened then
-            return
-          end
-          -- Don't clear on oil-to-oil navigation (selecting a directory swaps
-          -- the window to a new oil buffer, which fires BufLeave). Defer and
-          -- only drop the flag once the window has landed on a non-oil buffer,
-          -- otherwise the leak-prevention BufEnter handler wipes the directory.
-          vim.schedule(function()
-            if
-              vim.api.nvim_win_is_valid(win)
-              and vim.w[win].oil_opened
-              and vim.bo[vim.api.nvim_win_get_buf(win)].filetype ~= 'oil'
-            then
-              vim.w[win].oil_opened = nil
+        api.tree.find_file { open = true, focus = true }
+      end, { desc = 'Reveal current file in tree' })
+
+      -- Update the LSP on move/rename so imports and references follow the file.
+      -- rename_full (mapped to R) fires NodeRenamed for both in-place renames and
+      -- path-typed moves between folders. NOTE: cut/paste moves (x then p) may not
+      -- emit this event, so prefer R for LSP-aware relocations.
+      api.events.subscribe(api.events.Event.NodeRenamed, function(data)
+        local files = { { oldUri = vim.uri_from_fname(data.old_name), newUri = vim.uri_from_fname(data.new_name) } }
+        for _, client in ipairs(vim.lsp.get_clients()) do
+          local fileops = vim.tbl_get(client.server_capabilities or {}, 'workspace', 'fileOperations') or {}
+          if fileops.willRename then
+            local resp = client:request_sync('workspace/willRenameFiles', { files = files }, 1000, 0)
+            if resp and resp.result then
+              pcall(vim.lsp.util.apply_workspace_edit, resp.result, client.offset_encoding)
             end
-          end)
-        end,
-      })
-      vim.keymap.set('n', '<leader>b', toggle_oil_sidebar, { desc = 'Toggle oil sidebar' })
+          end
+          if fileops.didRename then
+            client:notify('workspace/didRenameFiles', { files = files })
+          end
+        end
+      end)
     end,
   },
 
@@ -754,6 +638,7 @@ require('lazy').setup({
     end,
   },
   {
+    -- used instead of native findfunc etc for live fuzzy async fuzzy finding
     'nvim-telescope/telescope.nvim',
     event = 'VimEnter',
     dependencies = {
@@ -1184,12 +1069,49 @@ require('lazy').setup({
       })
       -- Typescript --------------------------
 
+      vim.lsp.config('astro_ls', {
+        cmd = { 'astro-ls', '--stdio' },
+        filetypes = { 'astro' },
+        root_markers = { 'astro.config.mjs', 'astro.config.ts', 'package.json' },
+        init_options = { typescript = {} },
+        before_init = function(params, config)
+          -- astro-ls requires an absolute path to a typescript lib dir.
+          -- Resolve the workspace root from the initialize params (reliable),
+          -- falling back to config.root_dir and cwd.
+          local root = config.root_dir
+          if not root and params.workspaceFolders and params.workspaceFolders[1] then
+            root = vim.uri_to_fname(params.workspaceFolders[1].uri)
+          end
+          root = root or params.rootPath or vim.fn.getcwd()
+
+          local candidates = {
+            vim.fs.joinpath(root, 'node_modules', 'typescript', 'lib'),
+          }
+          -- Walk up for monorepo/hoisted installs.
+          for dir in vim.fs.parents(root .. '/x') do
+            table.insert(candidates, vim.fs.joinpath(dir, 'node_modules', 'typescript', 'lib'))
+          end
+
+          for _, tsdk in ipairs(candidates) do
+            if vim.uv.fs_stat(vim.fs.joinpath(tsdk, 'typescript.js')) then
+              config.init_options.typescript.tsdk = tsdk
+              return
+            end
+          end
+
+          vim.schedule(function()
+            vim.notify('astro_ls: could not find typescript/lib under ' .. root, vim.log.levels.WARN)
+          end)
+        end,
+      })
+
       local servers_enabled = {
         'lua_ls',
         'vtsls',
         'gopls',
         -- 'jdtls',
         'solargraph',
+        'astro_ls',
       }
       for _, ls in ipairs(servers_enabled) do
         vim.lsp.enable(ls)
@@ -1197,6 +1119,7 @@ require('lazy').setup({
     end,
   },
   { -- Autocompletion
+    --  Used instead of native vim.lsp.completion, completeopt etc because of result sorting, ranking and deduping
     'saghen/blink.cmp',
     event = 'VimEnter',
     version = '1.*',
@@ -1273,10 +1196,16 @@ require('lazy').setup({
         enabled = false,
       },
       sources = {
-        default = { 'lsp', 'path', 'snippets', 'lazydev', 'freemarker' },
+        default = {
+          'lsp',
+          'path',
+          'snippets',
+          'lazydev',
+          -- 'freemarker',
+        },
         providers = {
           lazydev = { module = 'lazydev.integrations.blink', score_offset = 100 },
-          freemarker = { module = 'custom.freemarker.blink', score_offset = 50 },
+          -- freemarker = { module = 'custom.freemarker.blink', score_offset = 50 },
         },
       },
       snippets = { preset = 'luasnip' },
@@ -1339,6 +1268,7 @@ require('lazy').setup({
         jsonc = { 'prettier' },
         css = { 'prettier' },
         scss = { 'prettier' },
+        astro = { 'prettier' },
         nim = { 'nimpretty' },
       },
     },
@@ -1429,243 +1359,6 @@ require('lazy').setup({
       require('kotlin.commands').setup()
       require('kotlin.diagnostics').setup()
       require('kotlin.package').setup()
-    end,
-  },
-  {
-    'sindrets/diffview.nvim',
-    config = function()
-      vim.keymap.set('n', '<leader>gs', '<Cmd>DiffviewOpen<CR>')
-
-      -- Lua
-      local actions = require 'diffview.actions'
-
-      require('diffview').setup {
-        diff_binaries = false, -- Show diffs for binaries
-        enhanced_diff_hl = false, -- See |diffview-config-enhanced_diff_hl|
-        git_cmd = { 'git' }, -- The git executable followed by default args.
-        hg_cmd = { 'hg' }, -- The hg executable followed by default args.
-        use_icons = false, -- Requires nvim-web-devicons
-        show_help_hints = true, -- Show hints for how to open the help panel
-        watch_index = true, -- Update views and index buffers when the git index changes.
-        icons = { -- Only applies when use_icons is true.
-          folder_closed = '',
-          folder_open = '',
-        },
-        signs = {
-          fold_closed = '',
-          fold_open = '',
-          done = '✓',
-        },
-        view = {
-          -- Configure the layout and behavior of different types of views.
-          -- Available layouts:
-          --  'diff1_plain'
-          --    |'diff2_horizontal'
-          --    |'diff2_vertical'
-          --    |'diff3_horizontal'
-          --    |'diff3_vertical'
-          --    |'diff3_mixed'
-          --    |'diff4_mixed'
-          -- For more info, see |diffview-config-view.x.layout|.
-          default = {
-            -- Config for changed files, and staged files in diff views.
-            layout = 'diff2_horizontal',
-            disable_diagnostics = false, -- Temporarily disable diagnostics for diff buffers while in the view.
-            winbar_info = false, -- See |diffview-config-view.x.winbar_info|
-          },
-          merge_tool = {
-            -- Config for conflicted files in diff views during a merge or rebase.
-            layout = 'diff3_horizontal',
-            disable_diagnostics = true, -- Temporarily disable diagnostics for diff buffers while in the view.
-            winbar_info = true, -- See |diffview-config-view.x.winbar_info|
-          },
-          file_history = {
-            -- Config for changed files in file history views.
-            layout = 'diff2_horizontal',
-            disable_diagnostics = false, -- Temporarily disable diagnostics for diff buffers while in the view.
-            winbar_info = false, -- See |diffview-config-view.x.winbar_info|
-          },
-        },
-        file_panel = {
-          listing_style = 'tree', -- One of 'list' or 'tree'
-          tree_options = { -- Only applies when listing_style is 'tree'
-            flatten_dirs = true, -- Flatten dirs that only contain one single dir
-            folder_statuses = 'only_folded', -- One of 'never', 'only_folded' or 'always'.
-          },
-          win_config = { -- See |diffview-config-win_config|
-            position = 'left',
-            width = 35,
-            win_opts = {},
-          },
-        },
-        file_history_panel = {
-          log_options = { -- See |diffview-config-log_options|
-            git = {
-              single_file = {
-                diff_merges = 'combined',
-              },
-              multi_file = {
-                diff_merges = 'first-parent',
-              },
-            },
-            hg = {
-              single_file = {},
-              multi_file = {},
-            },
-          },
-          win_config = { -- See |diffview-config-win_config|
-            position = 'bottom',
-            height = 16,
-            win_opts = {},
-          },
-        },
-        commit_log_panel = {
-          win_config = {}, -- See |diffview-config-win_config|
-        },
-        default_args = { -- Default args prepended to the arg-list for the listed commands
-          DiffviewOpen = {},
-          DiffviewFileHistory = {},
-        },
-        hooks = {}, -- See |diffview-config-hooks|
-        keymaps = {
-          disable_defaults = false, -- Disable the default keymaps
-          view = {
-            -- The `view` bindings are active in the diff buffers, only when the current
-            -- tabpage is a Diffview.
-            { 'n', '<tab>', actions.select_next_entry, { desc = 'Open the diff for the next file' } },
-            { 'n', '<s-tab>', actions.select_prev_entry, { desc = 'Open the diff for the previous file' } },
-            { 'n', '[F', actions.select_first_entry, { desc = 'Open the diff for the first file' } },
-            { 'n', ']F', actions.select_last_entry, { desc = 'Open the diff for the last file' } },
-            { 'n', 'gf', actions.goto_file_edit, { desc = 'Open the file in the previous tabpage' } },
-            { 'n', '<C-w><C-f>', actions.goto_file_split, { desc = 'Open the file in a new split' } },
-            { 'n', '<C-w>gf', actions.goto_file_tab, { desc = 'Open the file in a new tabpage' } },
-            { 'n', '<leader>e', actions.focus_files, { desc = 'Bring focus to the file panel' } },
-            { 'n', '<leader>b', actions.toggle_files, { desc = 'Toggle the file panel.' } },
-            { 'n', 'g<C-x>', actions.cycle_layout, { desc = 'Cycle through available layouts.' } },
-            { 'n', '[x', actions.prev_conflict, { desc = 'In the merge-tool: jump to the previous conflict' } },
-            { 'n', ']x', actions.next_conflict, { desc = 'In the merge-tool: jump to the next conflict' } },
-            { 'n', '<leader>co', actions.conflict_choose 'ours', { desc = 'Choose the OURS version of a conflict' } },
-            { 'n', '<leader>ct', actions.conflict_choose 'theirs', { desc = 'Choose the THEIRS version of a conflict' } },
-            { 'n', '<leader>cb', actions.conflict_choose 'base', { desc = 'Choose the BASE version of a conflict' } },
-            { 'n', '<leader>ca', actions.conflict_choose 'all', { desc = 'Choose all the versions of a conflict' } },
-            { 'n', 'dx', actions.conflict_choose 'none', { desc = 'Delete the conflict region' } },
-            { 'n', '<leader>cO', actions.conflict_choose_all 'ours', { desc = 'Choose the OURS version of a conflict for the whole file' } },
-            { 'n', '<leader>cT', actions.conflict_choose_all 'theirs', { desc = 'Choose the THEIRS version of a conflict for the whole file' } },
-            { 'n', '<leader>cB', actions.conflict_choose_all 'base', { desc = 'Choose the BASE version of a conflict for the whole file' } },
-            { 'n', '<leader>cA', actions.conflict_choose_all 'all', { desc = 'Choose all the versions of a conflict for the whole file' } },
-            { 'n', 'dX', actions.conflict_choose_all 'none', { desc = 'Delete the conflict region for the whole file' } },
-          },
-          diff1 = {
-            -- Mappings in single window diff layouts
-            { 'n', 'g?', actions.help { 'view', 'diff1' }, { desc = 'Open the help panel' } },
-          },
-          diff2 = {
-            -- Mappings in 2-way diff layouts
-            { 'n', 'g?', actions.help { 'view', 'diff2' }, { desc = 'Open the help panel' } },
-          },
-          diff3 = {
-            -- Mappings in 3-way diff layouts
-            { { 'n', 'x' }, '2do', actions.diffget 'ours', { desc = 'Obtain the diff hunk from the OURS version of the file' } },
-            { { 'n', 'x' }, '3do', actions.diffget 'theirs', { desc = 'Obtain the diff hunk from the THEIRS version of the file' } },
-            { 'n', 'g?', actions.help { 'view', 'diff3' }, { desc = 'Open the help panel' } },
-          },
-          diff4 = {
-            -- Mappings in 4-way diff layouts
-            { { 'n', 'x' }, '1do', actions.diffget 'base', { desc = 'Obtain the diff hunk from the BASE version of the file' } },
-            { { 'n', 'x' }, '2do', actions.diffget 'ours', { desc = 'Obtain the diff hunk from the OURS version of the file' } },
-            { { 'n', 'x' }, '3do', actions.diffget 'theirs', { desc = 'Obtain the diff hunk from the THEIRS version of the file' } },
-            { 'n', 'g?', actions.help { 'view', 'diff4' }, { desc = 'Open the help panel' } },
-          },
-          file_panel = {
-            { 'n', 'j', actions.next_entry, { desc = 'Bring the cursor to the next file entry' } },
-            { 'n', '<down>', actions.next_entry, { desc = 'Bring the cursor to the next file entry' } },
-            { 'n', 'k', actions.prev_entry, { desc = 'Bring the cursor to the previous file entry' } },
-            { 'n', '<up>', actions.prev_entry, { desc = 'Bring the cursor to the previous file entry' } },
-            { 'n', '<cr>', actions.select_entry, { desc = 'Open the diff for the selected entry' } },
-            { 'n', 'o', actions.select_entry, { desc = 'Open the diff for the selected entry' } },
-            { 'n', 'l', actions.select_entry, { desc = 'Open the diff for the selected entry' } },
-            { 'n', '<2-LeftMouse>', actions.select_entry, { desc = 'Open the diff for the selected entry' } },
-            { 'n', '-', actions.toggle_stage_entry, { desc = 'Stage / unstage the selected entry' } },
-            { 'n', 's', actions.toggle_stage_entry, { desc = 'Stage / unstage the selected entry' } },
-            { 'n', 'S', actions.stage_all, { desc = 'Stage all entries' } },
-            { 'n', 'U', actions.unstage_all, { desc = 'Unstage all entries' } },
-            { 'n', 'X', actions.restore_entry, { desc = 'Restore entry to the state on the left side' } },
-            { 'n', 'L', actions.open_commit_log, { desc = 'Open the commit log panel' } },
-            { 'n', 'zo', actions.open_fold, { desc = 'Expand fold' } },
-            { 'n', 'h', actions.close_fold, { desc = 'Collapse fold' } },
-            { 'n', 'zc', actions.close_fold, { desc = 'Collapse fold' } },
-            { 'n', 'za', actions.toggle_fold, { desc = 'Toggle fold' } },
-            { 'n', 'zR', actions.open_all_folds, { desc = 'Expand all folds' } },
-            { 'n', 'zM', actions.close_all_folds, { desc = 'Collapse all folds' } },
-            { 'n', '<c-b>', actions.scroll_view(-0.25), { desc = 'Scroll the view up' } },
-            { 'n', '<c-f>', actions.scroll_view(0.25), { desc = 'Scroll the view down' } },
-            { 'n', '<tab>', actions.select_next_entry, { desc = 'Open the diff for the next file' } },
-            { 'n', '<s-tab>', actions.select_prev_entry, { desc = 'Open the diff for the previous file' } },
-            { 'n', '[F', actions.select_first_entry, { desc = 'Open the diff for the first file' } },
-            { 'n', ']F', actions.select_last_entry, { desc = 'Open the diff for the last file' } },
-            { 'n', 'gf', actions.goto_file_edit, { desc = 'Open the file in the previous tabpage' } },
-            { 'n', '<C-w><C-f>', actions.goto_file_split, { desc = 'Open the file in a new split' } },
-            { 'n', '<C-w>gf', actions.goto_file_tab, { desc = 'Open the file in a new tabpage' } },
-            { 'n', 'i', actions.listing_style, { desc = "Toggle between 'list' and 'tree' views" } },
-            { 'n', 'f', actions.toggle_flatten_dirs, { desc = 'Flatten empty subdirectories in tree listing style' } },
-            { 'n', 'R', actions.refresh_files, { desc = 'Update stats and entries in the file list' } },
-            { 'n', '<leader>e', actions.focus_files, { desc = 'Bring focus to the file panel' } },
-            { 'n', '<leader>b', actions.toggle_files, { desc = 'Toggle the file panel' } },
-            { 'n', 'g<C-x>', actions.cycle_layout, { desc = 'Cycle available layouts' } },
-            { 'n', '[x', actions.prev_conflict, { desc = 'Go to the previous conflict' } },
-            { 'n', ']x', actions.next_conflict, { desc = 'Go to the next conflict' } },
-            { 'n', 'g?', actions.help 'file_panel', { desc = 'Open the help panel' } },
-            { 'n', '<leader>cO', actions.conflict_choose_all 'ours', { desc = 'Choose the OURS version of a conflict for the whole file' } },
-            { 'n', '<leader>cT', actions.conflict_choose_all 'theirs', { desc = 'Choose the THEIRS version of a conflict for the whole file' } },
-            { 'n', '<leader>cB', actions.conflict_choose_all 'base', { desc = 'Choose the BASE version of a conflict for the whole file' } },
-            { 'n', '<leader>cA', actions.conflict_choose_all 'all', { desc = 'Choose all the versions of a conflict for the whole file' } },
-            { 'n', 'dX', actions.conflict_choose_all 'none', { desc = 'Delete the conflict region for the whole file' } },
-          },
-          file_history_panel = {
-            { 'n', 'g!', actions.options, { desc = 'Open the option panel' } },
-            { 'n', '<C-A-d>', actions.open_in_diffview, { desc = 'Open the entry under the cursor in a diffview' } },
-            { 'n', 'y', actions.copy_hash, { desc = 'Copy the commit hash of the entry under the cursor' } },
-            { 'n', 'L', actions.open_commit_log, { desc = 'Show commit details' } },
-            { 'n', 'X', actions.restore_entry, { desc = 'Restore file to the state from the selected entry' } },
-            { 'n', 'zo', actions.open_fold, { desc = 'Expand fold' } },
-            { 'n', 'zc', actions.close_fold, { desc = 'Collapse fold' } },
-            { 'n', 'h', actions.close_fold, { desc = 'Collapse fold' } },
-            { 'n', 'za', actions.toggle_fold, { desc = 'Toggle fold' } },
-            { 'n', 'zR', actions.open_all_folds, { desc = 'Expand all folds' } },
-            { 'n', 'zM', actions.close_all_folds, { desc = 'Collapse all folds' } },
-            { 'n', 'j', actions.next_entry, { desc = 'Bring the cursor to the next file entry' } },
-            { 'n', '<down>', actions.next_entry, { desc = 'Bring the cursor to the next file entry' } },
-            { 'n', 'k', actions.prev_entry, { desc = 'Bring the cursor to the previous file entry' } },
-            { 'n', '<up>', actions.prev_entry, { desc = 'Bring the cursor to the previous file entry' } },
-            { 'n', '<cr>', actions.select_entry, { desc = 'Open the diff for the selected entry' } },
-            { 'n', 'o', actions.select_entry, { desc = 'Open the diff for the selected entry' } },
-            { 'n', 'l', actions.select_entry, { desc = 'Open the diff for the selected entry' } },
-            { 'n', '<2-LeftMouse>', actions.select_entry, { desc = 'Open the diff for the selected entry' } },
-            { 'n', '<c-b>', actions.scroll_view(-0.25), { desc = 'Scroll the view up' } },
-            { 'n', '<c-f>', actions.scroll_view(0.25), { desc = 'Scroll the view down' } },
-            { 'n', '<tab>', actions.select_next_entry, { desc = 'Open the diff for the next file' } },
-            { 'n', '<s-tab>', actions.select_prev_entry, { desc = 'Open the diff for the previous file' } },
-            { 'n', '[F', actions.select_first_entry, { desc = 'Open the diff for the first file' } },
-            { 'n', ']F', actions.select_last_entry, { desc = 'Open the diff for the last file' } },
-            { 'n', 'gf', actions.goto_file_edit, { desc = 'Open the file in the previous tabpage' } },
-            { 'n', '<C-w><C-f>', actions.goto_file_split, { desc = 'Open the file in a new split' } },
-            { 'n', '<C-w>gf', actions.goto_file_tab, { desc = 'Open the file in a new tabpage' } },
-            { 'n', '<leader>e', actions.focus_files, { desc = 'Bring focus to the file panel' } },
-            { 'n', '<leader>b', actions.toggle_files, { desc = 'Toggle the file panel' } },
-            { 'n', 'g<C-x>', actions.cycle_layout, { desc = 'Cycle available layouts' } },
-            { 'n', 'g?', actions.help 'file_history_panel', { desc = 'Open the help panel' } },
-          },
-          option_panel = {
-            { 'n', '<tab>', actions.select_entry, { desc = 'Change the current option' } },
-            { 'n', 'q', actions.close, { desc = 'Close the panel' } },
-            { 'n', 'g?', actions.help 'option_panel', { desc = 'Open the help panel' } },
-          },
-          help_panel = {
-            { 'n', 'q', actions.close, { desc = 'Close help menu' } },
-            { 'n', '<esc>', actions.close, { desc = 'Close help menu' } },
-          },
-        },
-      }
     end,
   },
   { -- Highlight, edit, and navigate code
@@ -1809,6 +1502,10 @@ vim.api.nvim_create_autocmd('OptionSet', {
   end,
 })
 
-vim.keymap.set('n', '<leader>gs', '<cmd>:enew | :silent read! git status<CR>', { desc = '[G]it [S]tatus unified diff' })
+vim.keymap.set('n', '<leader>gs', function()
+  local buf = vim.api.nvim_create_buf(false, true) -- scratch: nofile, no swap, unlisted
+  vim.api.nvim_set_current_buf(buf)
+  vim.cmd 'silent read! git status'
+end, { desc = '[G]it [S]tatus unified diff' })
 
 require 'call-graph'
