@@ -1482,6 +1482,66 @@ require('lazy').setup({
 
 -- require 'custom.plugins.init'
 
+-- Extract a file path from the current `git status --short` line.
+-- Handles the "XY " status columns, "orig -> dest" renames (returns dest, the
+-- name the index tracks), and git's C-quoted paths for spaces / non-ASCII.
+local function git_status_path()
+  local line = vim.api.nvim_get_current_line()
+  local rest = line:match '^..%s+(.+)$' or line
+  rest = rest:match '.*%s%-> (.+)$' or rest
+  if rest:sub(1, 1) == '"' then
+    rest = vim.fn.eval(rest)
+  end
+  return rest
+end
+
+vim.api.nvim_create_user_command('MyGdiffsplit', function()
+  -- 1. Get the file path under the cursor
+  local file_path = git_status_path()
+  if file_path == '' then
+    vim.notify('No file path found under cursor', vim.log.levels.WARN)
+    return
+  end
+
+  -- 2. Read the Git index content of that file into a variable
+  local git_cmd = string.format('git show :%s', vim.fn.shellescape(file_path))
+  local git_lines = vim.fn.systemlist(git_cmd)
+
+  -- Check if git show succeeded (if file is untracked, it will fail)
+  if vim.v.shell_error ~= 0 then
+    vim.notify('Git error: File may be untracked or modified outside a repo', vim.log.levels.ERROR)
+    return
+  end
+
+  -- 3. Open the working file in its own tab (the status buffer stays as a
+  --    "sidebar"; :tabclose tears the whole diff down at once)
+  vim.cmd('tabedit ' .. vim.fn.fnameescape(file_path))
+  local working_win = vim.api.nvim_get_current_win()
+
+  -- 4. Create an unlisted, scratch buffer for the Git index version
+  local git_buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_name(git_buf, 'git://index/' .. file_path)
+  vim.api.nvim_buf_set_lines(git_buf, 0, -1, false, git_lines)
+  vim.bo[git_buf].bufhidden = 'wipe' -- don't accumulate/collide on re-run
+
+  -- Set filetype for syntax highlighting in the git buffer
+  local ft = vim.filetype.match { filename = file_path }
+  if ft then
+    vim.bo[git_buf].filetype = ft
+  end
+
+  -- 5. Open the Git buffer in its own vertical split beside the working file
+  vim.cmd 'leftabove vsplit'
+  local git_win = vim.api.nvim_get_current_win()
+  vim.api.nvim_win_set_buf(git_win, git_buf)
+
+  -- 6. Turn on diff mode for both windows, addressing them by handle
+  vim.api.nvim_set_current_win(git_win)
+  vim.cmd 'diffthis'
+  vim.api.nvim_set_current_win(working_win)
+  vim.cmd 'diffthis'
+end, {})
+
 vim.cmd 'packadd nvim.undotree'
 vim.keymap.set('n', '<leader>u', '<Cmd>Undotree<CR>')
 
@@ -1505,7 +1565,9 @@ vim.api.nvim_create_autocmd('OptionSet', {
 vim.keymap.set('n', '<leader>gs', function()
   local buf = vim.api.nvim_create_buf(false, true) -- scratch: nofile, no swap, unlisted
   vim.api.nvim_set_current_buf(buf)
-  vim.cmd 'silent read! git status'
+  vim.cmd 'silent read! git status --short'
+  -- <CR> on a path opens its diff in a new tab
+  vim.keymap.set('n', '<CR>', '<Cmd>MyGdiffsplit<CR>', { buffer = buf, desc = 'Diff file under cursor' })
 end, { desc = '[G]it [S]tatus unified diff' })
 
 require 'call-graph'
