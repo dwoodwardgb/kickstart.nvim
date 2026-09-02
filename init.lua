@@ -532,21 +532,22 @@ require('lazy').setup({
         end,
       })
 
-      -- <leader>b: 3-state toggle like the old oil sidebar — open when closed,
-      -- focus when open-but-unfocused, close when already focused.
+      -- <leader>b: open if hidden, close if visible (one press always toggles).
       vim.keymap.set('n', '<leader>b', function()
-        if not api.tree.is_visible() then
-          api.tree.open()
-        elseif api.tree.is_tree_buf(vim.api.nvim_get_current_buf()) then
+        if api.tree.is_visible() then
           api.tree.close()
         else
-          api.tree.focus()
+          api.tree.open()
         end
       end, { desc = 'Toggle nvim-tree sidebar' })
 
-      -- <leader>e: reveal the current file in the tree (opens it if needed).
+      -- <leader>e: reveal current file; close if tree is already visible.
       vim.keymap.set('n', '<leader>e', function()
-        api.tree.find_file { open = true, focus = true }
+        if api.tree.is_visible() then
+          api.tree.close()
+        else
+          api.tree.find_file { open = true, focus = true }
+        end
       end, { desc = 'Reveal current file in tree' })
 
       -- Update the LSP on move/rename so imports and references follow the file.
