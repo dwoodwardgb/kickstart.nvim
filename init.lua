@@ -1,6 +1,3 @@
--- vim.g.loaded_netrw = 1
--- vim.g.loaded_netrwPlugin = 1
-
 --  NOTE: Must happen before plugins are loaded (otherwise wrong leader will be used)
 vim.g.mapleader = ' '
 vim.g.maplocalleader = ' '
@@ -19,7 +16,7 @@ vim.o.undofile = true
 vim.o.ignorecase = true
 vim.o.smartcase = true
 vim.o.signcolumn = 'yes'
-vim.o.timeoutlen = 900
+vim.o.timeoutlen = 1100
 vim.o.splitright = true
 vim.o.splitbelow = true
 vim.o.list = true
@@ -325,6 +322,14 @@ vim.api.nvim_create_user_command('DebugTermcolors', function(args)
 end, {
   desc = '',
 })
+-- Returns `color` tinted by adding dr/dg/db to its RGB channels.
+local function tint_color(color, dr, dg, db)
+  local r = math.floor(color / 0x10000)
+  local g = math.floor(color / 0x100) % 0x100
+  local b = color % 0x100
+  return math.max(0, math.min(255, r + dr)) * 0x10000 + math.max(0, math.min(255, g + dg)) * 0x100 + math.max(0, math.min(255, b + db))
+end
+
 vim.api.nvim_create_autocmd('ColorScheme', {
   pattern = '*',
   callback = function()
@@ -332,6 +337,37 @@ vim.api.nvim_create_autocmd('ColorScheme', {
       vim.g.terminal_color_8 = '#333333'
     else
       vim.g.terminal_color_8 = '#aaaaaa'
+    end
+
+    local raw_bg = vim.api.nvim_get_hl(0, { name = 'Normal' }).bg
+    local is_light = vim.o.background == 'light'
+    -- Treat unset or dark bg as white in light mode, black in dark mode.
+    local function luminance(c)
+      return math.floor(c / 0x10000) * 0.299 + math.floor(c / 0x100) % 0x100 * 0.587 + c % 0x100 * 0.114
+    end
+    local fallback = is_light and 0xffffff or 0x000000
+    local normal_bg = (raw_bg and (is_light and luminance(raw_bg) > 64 or not is_light and luminance(raw_bg) < 192)) and raw_bg or fallback
+    local offset = is_light and -11 or 10
+    vim.api.nvim_set_hl(0, 'Folded', {
+      -- fg = vim.api.nvim_get_hl(0, { name = 'Comment' }).fg,
+      bg = tint_color(normal_bg, offset, offset, offset),
+      -- italic = true,
+    })
+
+    if is_light then
+      vim.api.nvim_set_hl(0, 'CursorLine', { bg = tint_color(normal_bg, -8, -4, 12) })
+    end
+  end,
+})
+
+vim.api.nvim_create_autocmd('ColorScheme', {
+  pattern = 'vim',
+  callback = function()
+    if vim.o.background == 'light' then
+      -- vim sets Pmenu=LightMagenta which bleeds into NormalFloat; use morning's neutral gray instead.
+      vim.cmd 'hi Pmenu    ctermfg=Black ctermbg=White guifg=Black guibg=LightGray'
+      vim.cmd 'hi SignColumn ctermbg=White ctermfg=Black guibg=White guifg=Black'
+      vim.cmd 'hi LineNr ctermfg=DarkGray guifg=DarkGray'
     end
   end,
 })
@@ -392,14 +428,13 @@ require('lazy').setup({
       }
     end,
   },
-  { 'wtfox/jellybeans.nvim' },
   { 'Verf/deepwhite.nvim' },
+  -- dark themes
   {
     -- TODO: remove italics
     'datsfilipe/vesper.nvim',
   },
-  -- dark themes
-  { 'bluz71/vim-moonfly-colors' },
+  -- Using Lazy
   {
     'rebelot/kanagawa.nvim',
     config = function()
@@ -415,7 +450,6 @@ require('lazy').setup({
     -- TODO: remove italics
     'vague-theme/vague.nvim',
   },
-  { 'thepogsupreme/mountain.nvim' },
   { 'NMAC427/guess-indent.nvim' },
   { -- Adds git related signs to the gutter, as well as utilities for managing changes
     'lewis6991/gitsigns.nvim',
@@ -429,13 +463,6 @@ require('lazy').setup({
       },
     },
   },
-  -- {
-  --   'axkirillov/unified.nvim',
-  --   config = function()
-  --     require('unified').setup()
-  --     vim.keymap.set('n', '<leader>gs', '<cmd>Unified<CR>', { desc = '[G]it [S]tatus unified diff' })
-  --   end,
-  -- },
   {
     'nvim-tree/nvim-tree.lua',
     lazy = false,
@@ -1432,6 +1459,9 @@ require('lazy').setup({
       trim_scope = 'outer',
     },
   },
+  {
+    'tpope/vim-fugitive',
+  },
   -- ;; ~/.config/nvim/queries/javascript/context.scm
   --
   -- (function_declaration) @context
@@ -1495,79 +1525,116 @@ local function git_status_path()
   return rest
 end
 
-vim.api.nvim_create_user_command('MyGdiffsplit', function()
-  -- 1. Get the file path under the cursor
-  local file_path = git_status_path()
-  if file_path == '' then
-    vim.notify('No file path found under cursor', vim.log.levels.WARN)
-    return
-  end
-
-  -- 2. Read the Git index content of that file into a variable
-  local git_cmd = string.format('git show :%s', vim.fn.shellescape(file_path))
-  local git_lines = vim.fn.systemlist(git_cmd)
-
-  -- Check if git show succeeded (if file is untracked, it will fail)
-  if vim.v.shell_error ~= 0 then
-    vim.notify('Git error: File may be untracked or modified outside a repo', vim.log.levels.ERROR)
-    return
-  end
-
-  -- 3. Open the working file in its own tab (the status buffer stays as a
-  --    "sidebar"; :tabclose tears the whole diff down at once)
-  vim.cmd('tabedit ' .. vim.fn.fnameescape(file_path))
-  local working_win = vim.api.nvim_get_current_win()
-
-  -- 4. Create an unlisted, scratch buffer for the Git index version
-  local git_buf = vim.api.nvim_create_buf(false, true)
-  vim.api.nvim_buf_set_name(git_buf, 'git://index/' .. file_path)
-  vim.api.nvim_buf_set_lines(git_buf, 0, -1, false, git_lines)
-  vim.bo[git_buf].bufhidden = 'wipe' -- don't accumulate/collide on re-run
-
-  -- Set filetype for syntax highlighting in the git buffer
-  local ft = vim.filetype.match { filename = file_path }
-  if ft then
-    vim.bo[git_buf].filetype = ft
-  end
-
-  -- 5. Open the Git buffer in its own vertical split beside the working file
-  vim.cmd 'leftabove vsplit'
-  local git_win = vim.api.nvim_get_current_win()
-  vim.api.nvim_win_set_buf(git_win, git_buf)
-
-  -- 6. Turn on diff mode for both windows, addressing them by handle
-  vim.api.nvim_set_current_win(git_win)
-  vim.cmd 'diffthis'
-  vim.api.nvim_set_current_win(working_win)
-  vim.cmd 'diffthis'
-end, {})
-
 vim.cmd 'packadd nvim.undotree'
 vim.keymap.set('n', '<leader>u', '<Cmd>Undotree<CR>')
 
 function myfoldtext()
-  local line = vim.fn.getline(vim.v.foldstart)
-  return line
+  local line = vim.fn.getline(vim.v.foldstart):gsub('%s*{{{%d*', '')
+  local count = vim.v.foldend - vim.v.foldstart
+  return line .. ' +' .. count .. ''
 end
 vim.o.foldtext = 'v:lua.myfoldtext()'
 
-vim.api.nvim_create_autocmd('OptionSet', {
-  pattern = 'diff',
-  callback = function()
-    if vim.o.diff then
-      vim.o.signcolumn = 'auto:1' -- at most 1 cell
-    else
-      vim.o.signcolumn = 'auto'
-    end
+-- 1. Enhanced 'O' mapping for Quickfix buffers (Handles Missing/New Files)
+vim.api.nvim_create_autocmd('FileType', {
+  pattern = 'qf',
+  callback = function(args)
+    vim.keymap.set('n', 'O', function()
+      -- Check or prompt for target branch
+      local branch = vim.b.diff_target_branch
+      if not branch or branch == '' then
+        branch = vim.fn.input 'Diff against branch/commit: '
+        if branch == '' then
+          return
+        end
+        vim.b.diff_target_branch = branch
+      end
+
+      -- Fetch item directly from quickfix list data
+      local qf_idx = vim.fn.line '.'
+      local qf_list = vim.fn.getqflist()
+      local item = qf_list[qf_idx]
+
+      if not item or (item.bufnr == 0 and item.filename == '') then
+        return
+      end
+
+      -- Open in a new tab and load the file there
+      vim.cmd 'tabnew'
+      local created = false
+      if item.bufnr > 0 then
+        vim.cmd('buffer ' .. item.bufnr)
+      else
+        vim.cmd('edit ' .. vim.fn.fnameescape(item.filename))
+        created = true
+      end
+      local file_buf = vim.api.nvim_get_current_buf()
+      local file_win = vim.api.nvim_get_current_win()
+
+      -- Attempt Gvdiffsplit. If file doesn't exist in target branch (e.g. new file),
+      -- catch the error and create an empty scratch split to diff against.
+      local ok = pcall(function()
+        vim.cmd('Gvdiffsplit ' .. branch)
+      end)
+      local diff_buf
+      if ok then
+        diff_buf = vim.api.nvim_get_current_buf()
+      else
+        vim.cmd 'leftabove vnew'
+        vim.bo.buftype = 'nofile'
+        vim.bo.bufhidden = 'wipe'
+        vim.bo.swapfile = false
+        vim.cmd('file ' .. vim.fn.fnameescape('[' .. branch .. ': file does not exist]'))
+        diff_buf = vim.api.nvim_get_current_buf()
+        vim.wo.diff = true
+        vim.api.nvim_set_current_win(file_win)
+        vim.wo.diff = true
+      end
+
+      -- Wipe the tab's diff buffers when the tab is closed, so nothing
+      -- lingers in the buffer list. Modified buffers are left alone.
+      local tab = vim.api.nvim_get_current_tabpage()
+      vim.api.nvim_create_autocmd('TabClosed', {
+        pattern = tostring(tab),
+        once = true,
+        callback = function()
+          for _, b in ipairs { created and file_buf or nil, diff_buf } do
+            if b and vim.api.nvim_buf_is_valid(b) and not vim.bo[b].modified then
+              vim.cmd('silent! bdelete ' .. b.bufnr)
+            end
+          end
+        end,
+        desc = 'Clean up diff tab buffers',
+      })
+    end, {
+      buffer = args.buf,
+      silent = true,
+      desc = 'Open QF item in new tab with Gvdiffsplit (buffers auto-wipe on tab close)',
+    })
   end,
 })
 
-vim.keymap.set('n', '<leader>gs', function()
-  local buf = vim.api.nvim_create_buf(false, true) -- scratch: nofile, no swap, unlisted
-  vim.api.nvim_set_current_buf(buf)
-  vim.cmd 'silent read! git status --short'
-  -- <CR> on a path opens its diff in a new tab
-  vim.keymap.set('n', '<CR>', '<Cmd>MyGdiffsplit<CR>', { buffer = buf, desc = 'Diff file under cursor' })
-end, { desc = '[G]it [S]tatus unified diff' })
+-- 2. Custom command: :DiffBranch <branch>
+vim.api.nvim_create_user_command('DiffBranch', function(opts)
+  local branch = opts.args
+  if branch == '' then
+    return
+  end
 
-require 'call-graph'
+  vim.cmd('Git difftool --name-status ' .. branch)
+  vim.cmd 'copen'
+  vim.b.diff_target_branch = branch
+end, { nargs = 1 })
+
+-- vim.api.nvim_create_autocmd('OptionSet', {
+--   pattern = 'diff',
+--   callback = function()
+--     if vim.o.diff then
+--       vim.o.signcolumn = 'auto:1' -- at most 1 cell
+--     else
+--       vim.o.signcolumn = 'auto'
+--     end
+--   end,
+-- })
+
+-- require 'call-graph'
