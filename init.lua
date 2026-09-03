@@ -513,7 +513,15 @@ require('lazy').setup({
           side = 'right',
           width = tree_width,
         },
-        renderer = { group_empty = true },
+        renderer = {
+          group_empty = true,
+          highlight_git = 'name',
+          add_trailing = not vim.g.have_nerd_font,
+          indent_markers = { enable = true },
+          icons = {
+            show = ((vim.g.have_nerd_font and { git = false, folder_arrow = false }) or { folder_arrow = false, folder = false, file = false, git = false }),
+          },
+        },
         filters = { dotfiles = false }, -- show hidden files (matches oil's show_hidden)
         actions = {
           open_file = { quit_on_open = false }, -- sidebar stays open after opening a file
