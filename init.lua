@@ -402,13 +402,12 @@ require('lazy').setup({
     config = function()
       local auto_dark_mode = require 'auto-dark-mode'
       auto_dark_mode.setup {
-        update_interval = 5000, -- Check for theme changes every 4 seconds
+        update_interval = 8000, -- Check for theme changes every 4 seconds
         set_dark_mode = function()
-          vim.cmd.colorscheme 'habamax'
+          vim.cmd.colorscheme 'lunaperche'
         end,
         set_light_mode = function()
           vim.cmd.colorscheme 'lunaperche'
-          -- vim.cmd.colorscheme 'wildcharm'
         end,
       }
     end,
@@ -427,28 +426,6 @@ require('lazy').setup({
         },
       }
     end,
-  },
-  { 'Verf/deepwhite.nvim' },
-  -- dark themes
-  {
-    -- TODO: remove italics
-    'datsfilipe/vesper.nvim',
-  },
-  -- Using Lazy
-  {
-    'rebelot/kanagawa.nvim',
-    config = function()
-      require('kanagawa').setup {
-        commentStyle = { italic = false },
-        functionStyle = { italic = false },
-        keywordStyle = { italic = false },
-        statementStyle = { bold = false },
-      }
-    end,
-  },
-  {
-    -- TODO: remove italics
-    'vague-theme/vague.nvim',
   },
   { 'NMAC427/guess-indent.nvim' },
   { -- Adds git related signs to the gutter, as well as utilities for managing changes
@@ -549,13 +526,9 @@ require('lazy').setup({
         end
       end, { desc = 'Toggle nvim-tree sidebar' })
 
-      -- <leader>e: reveal current file; close if tree is already visible.
+      -- <leader>e: reveal the current file in the tree.
       vim.keymap.set('n', '<leader>e', function()
-        if api.tree.is_visible() then
-          api.tree.close()
-        else
-          api.tree.find_file { open = true, focus = true }
-        end
+        api.tree.find_file { open = true, focus = true }
       end, { desc = 'Reveal current file in tree' })
 
       -- Update the LSP on move/rename so imports and references follow the file.
