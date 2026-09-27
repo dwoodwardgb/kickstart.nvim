@@ -330,9 +330,46 @@ local function tint_color(color, dr, dg, db)
   return math.max(0, math.min(255, r + dr)) * 0x10000 + math.max(0, math.min(255, g + dg)) * 0x100 + math.max(0, math.min(255, b + db))
 end
 
+-- Only in gui/truecolor mode, make the Normal background pure white/black
+-- instead of the default theme's grays. This must be registered *before* the
+-- `*` handler below, because that one derives Folded/CursorLine from Normal's
+-- background and ColorScheme callbacks run in registration order.
+vim.api.nvim_create_autocmd('ColorScheme', {
+  pattern = 'default',
+  callback = function()
+    if not vim.o.termguicolors then
+      return
+    end
+    local bg, fg
+    if vim.o.background == 'light' then
+      bg, fg = 0xffffff, 0x000000
+    else
+      bg, fg = 0x000000, 0xffffff
+    end
+    -- Override the background/foreground on the groups that make up the
+    -- general editor surface so it's pure white/black instead of gray.
+    for _, group in ipairs { 'Normal', 'NormalNC', 'SignColumn', 'EndOfBuffer', 'MsgArea' } do
+      -- link = false so linked groups resolve to real attributes; otherwise
+      -- nvim_set_hl would see `link` and ignore the bg/fg we set here.
+      ---@type vim.api.keyset.highlight
+      local hl = vim.api.nvim_get_hl(0, { name = group, link = false })
+      hl.bg = bg
+      hl.fg = hl.fg or fg
+      vim.api.nvim_set_hl(0, group, hl)
+    end
+  end,
+})
+
+-- Colorschemes whose CursorLine we tint ourselves. Real themes pick their own
+-- CursorLine background, so only the plain builtins get our derived tint.
+local cursorline_tint_schemes = {
+  default = true,
+  vim = true,
+}
+
 vim.api.nvim_create_autocmd('ColorScheme', {
   pattern = '*',
-  callback = function()
+  callback = function(args)
     if vim.o.background == 'light' then
       vim.g.terminal_color_8 = '#333333'
     else
@@ -354,9 +391,34 @@ vim.api.nvim_create_autocmd('ColorScheme', {
       -- italic = true,
     })
 
-    if is_light then
+    if is_light and cursorline_tint_schemes[args.match] then
       vim.api.nvim_set_hl(0, 'CursorLine', { bg = tint_color(normal_bg, -8, -4, 12) })
     end
+  end,
+})
+
+-- Highlight the active buffer in mini.tabline when using terminal colors
+-- (notermguicolors). By default MiniTablineCurrent only inherits `bold`, which
+-- is hard to see in a terminal, so the current buffer only stood out when it
+-- was modified. Give the current (and modified-current) labels a reversed
+-- block so they're clearly distinguished regardless of modified state.
+vim.api.nvim_create_autocmd('ColorScheme', {
+  pattern = 'default',
+  callback = function()
+    -- reverse => swap fg/bg, producing a solid highlighted block for the label.
+    vim.api.nvim_set_hl(0, 'MiniTablineCurrent', {
+      cterm = { reverse = true, bold = true },
+      reverse = true,
+      bold = true,
+    })
+    vim.api.nvim_set_hl(0, 'MiniTablineModifiedCurrent', {
+      -- Distinguish "modified" from a plain active buffer via italics on top
+      -- of the reversed block.
+      cterm = { reverse = true, bold = true, italic = true },
+      reverse = true,
+      bold = true,
+      italic = true,
+    })
   end,
 })
 
@@ -394,20 +456,19 @@ vim.api.nvim_create_autocmd('OptionSet', {
 local rtp = vim.opt.rtp
 rtp:prepend(lazypath)
 require('lazy').setup({
-  -- Auto theme detection plugin
+  -- NOTE: you can use dark-notify if you're only tragetting MacOS. Using this instead because this config is used on Linux sometimes
   {
-    -- NOTE: you can use dark-notify if you're only tragetting MacOS. Using this instead because this config is used on Linux sometimes
     'f-person/auto-dark-mode.nvim',
     lazy = false,
     config = function()
       local auto_dark_mode = require 'auto-dark-mode'
       auto_dark_mode.setup {
-        update_interval = 8000, -- Check for theme changes every 4 seconds
+        update_interval = 8000,
         set_dark_mode = function()
-          vim.cmd.colorscheme 'lunaperche'
+          vim.cmd.colorscheme 'myvim'
         end,
         set_light_mode = function()
-          vim.cmd.colorscheme 'lunaperche'
+          vim.cmd.colorscheme 'myvim'
         end,
       }
     end,
@@ -917,7 +978,7 @@ require('lazy').setup({
             end, { desc = '[T]oggle Inlay [H]ints' })
           end
 
-          if (client and client.name == 'ts_ls') or (client and client.name == 'vtsls') then
+          if client and (client.name == 'ts_ls' or client.name == 'vtsls' or client.name == 'tsc') then
             vim.o.makeprg = './node_modules/.bin/tsc --pretty false --noEmit'
             vim.opt.errorformat = '%f(%l\\,%c): %t%*[^:]:%m'
           end
@@ -1049,7 +1110,115 @@ require('lazy').setup({
       })
 
       -- Typescript --------------------------
+      -- Projects on TypeScript >= 7 (the native Go compiler) use its built-in LSP
+      -- (lspconfig config name 'tsc'; 'tsgo' is deprecated there); older
+      -- projects use vtsls. If a TS 7 project's native binary can't be found we
+      -- fall back to vtsls rather than leaving a dead client.
+      local ts_root_markers = { 'tsconfig.json', 'jsconfig.json', 'package.json', '.git' }
+
+      local function ts_root(bufnr)
+        local fname = vim.api.nvim_buf_get_name(bufnr)
+        return vim.fs.root(fname ~= '' and fname or bufnr, ts_root_markers)
+      end
+
+      -- Read the TypeScript version installed for a project root, walking up
+      -- node_modules for hoisted/monorepo installs.
+      local function ts_version(root)
+        if not root then
+          return nil
+        end
+        local dirs = { root }
+        for dir in vim.fs.parents(root .. '/x') do
+          table.insert(dirs, dir)
+        end
+        for _, dir in ipairs(dirs) do
+          local pkg = vim.fs.joinpath(dir, 'node_modules', 'typescript', 'package.json')
+          if vim.uv.fs_stat(pkg) then
+            local ok, data = pcall(function()
+              return vim.json.decode(table.concat(vim.fn.readfile(pkg), '\n'))
+            end)
+            if ok and data and data.version then
+              return data.version
+            end
+          end
+        end
+        return nil
+      end
+
+      -- TypeScript >= 7.0.0 is the native (Go) compiler, so it gets the native LSP.
+      local function ts_uses_native(root)
+        local version = ts_version(root)
+        if not version then
+          return false
+        end
+        local major = tonumber(version:match '^(%d+)')
+        return major ~= nil and major >= 7
+      end
+
+      -- Resolve the native (Go) TypeScript LSP binary.
+      --
+      -- Shipped TypeScript >= 7 has no `tsgo`: the `typescript` package only
+      -- declares a `tsc` bin (a Node shim that execve's the real binary), and
+      -- the native executable is installed by a platform optional-dep as
+      -- `@typescript/typescript-<platform>-<arch>/lib/tsc`. See
+      -- node_modules/typescript/lib/getExePath.js, which names the bin `tsc`
+      -- for the `typescript` package and `tsgo` only for native-preview.
+      --
+      -- We want the real executable, not the `.bin/tsc` Node shim: the shim
+      -- forwards stdio through an extra process, which breaks the LSP pipe.
+      -- Only the matching platform package is ever installed, so globbing
+      -- `typescript-*` avoids hand-maintaining a platform/arch table.
+      local function tsc_bin(root)
+        if root then
+          local dirs = { root }
+          for dir in vim.fs.parents(root .. '/x') do
+            table.insert(dirs, dir)
+          end
+          for _, dir in ipairs(dirs) do
+            local nm = vim.fs.joinpath(dir, 'node_modules')
+            -- TS 7: native binary inside the platform package.
+            local matches = vim.fn.glob(vim.fs.joinpath(nm, '@typescript', 'typescript-*', 'lib', 'tsc'), true, true)
+            if matches and matches[1] and vim.uv.fs_stat(matches[1]) then
+              return matches[1]
+            end
+            -- @typescript/native-preview (pre-7) shipped an actual `tsgo`.
+            local preview = vim.fn.glob(vim.fs.joinpath(nm, '@typescript', 'native-preview-*', 'lib', 'tsgo'), true, true)
+            if preview and preview[1] and vim.uv.fs_stat(preview[1]) then
+              return preview[1]
+            end
+            -- Node shims, as a last resort before $PATH.
+            for _, name in ipairs { 'tsc', 'tsgo' } do
+              local bin = vim.fs.joinpath(nm, '.bin', name)
+              if vim.uv.fs_stat(bin) then
+                return bin
+              end
+            end
+          end
+        end
+        for _, name in ipairs { 'tsc', 'tsgo' } do
+          if vim.fn.executable(name) == 1 then
+            return name
+          end
+        end
+        return nil
+      end
+
+      -- Single source of truth: the native server only when TS >= 7 AND its
+      -- binary resolves; otherwise vtsls.
+      local function ts_server_for(root)
+        if ts_uses_native(root) and tsc_bin(root) then
+          return 'tsc'
+        end
+        return 'vtsls'
+      end
+
       vim.lsp.config('vtsls', {
+        root_dir = function(bufnr, on_dir)
+          local root = ts_root(bufnr)
+          if root and ts_server_for(root) == 'vtsls' then
+            on_dir(root)
+          end
+        end,
         settings = {
           typescript = {
             -- Prevents the server from indexing massive dependency or build folders
@@ -1075,6 +1244,23 @@ require('lazy').setup({
             },
           },
         },
+      })
+
+      vim.lsp.config('tsc', {
+        cmd = function(dispatchers, config)
+          return vim.lsp.rpc.start({ tsc_bin(config.root_dir), '--lsp', '--stdio' }, dispatchers, {
+            cwd = config.cmd_cwd,
+            env = config.cmd_env,
+            detached = config.detached,
+          })
+        end,
+        filetypes = { 'javascript', 'javascriptreact', 'typescript', 'typescriptreact' },
+        root_dir = function(bufnr, on_dir)
+          local root = ts_root(bufnr)
+          if root and ts_server_for(root) == 'tsc' then
+            on_dir(root)
+          end
+        end,
       })
       -- Typescript --------------------------
 
@@ -1117,6 +1303,7 @@ require('lazy').setup({
       local servers_enabled = {
         'lua_ls',
         'vtsls',
+        'tsc',
         'gopls',
         -- 'jdtls',
         'solargraph',
@@ -1370,6 +1557,15 @@ require('lazy').setup({
       require('kotlin.package').setup()
     end,
   },
+  {
+    'esmuellert/codediff.nvim',
+    cmd = 'CodeDiff',
+    opts = {
+      diff = {
+        layout = 'inline',
+      },
+    },
+  },
   { -- Highlight, edit, and navigate code
     'nvim-treesitter/nvim-treesitter',
     lazy = false,
@@ -1441,9 +1637,6 @@ require('lazy').setup({
       trim_scope = 'outer',
     },
   },
-  {
-    'tpope/vim-fugitive',
-  },
   -- ;; ~/.config/nvim/queries/javascript/context.scm
   --
   -- (function_declaration) @context
@@ -1493,19 +1686,6 @@ require('lazy').setup({
 })
 
 -- require 'custom.plugins.init'
-
--- Extract a file path from the current `git status --short` line.
--- Handles the "XY " status columns, "orig -> dest" renames (returns dest, the
--- name the index tracks), and git's C-quoted paths for spaces / non-ASCII.
-local function git_status_path()
-  local line = vim.api.nvim_get_current_line()
-  local rest = line:match '^..%s+(.+)$' or line
-  rest = rest:match '.*%s%-> (.+)$' or rest
-  if rest:sub(1, 1) == '"' then
-    rest = vim.fn.eval(rest)
-  end
-  return rest
-end
 
 vim.cmd 'packadd nvim.undotree'
 vim.keymap.set('n', '<leader>u', '<Cmd>Undotree<CR>')
@@ -1595,18 +1775,6 @@ vim.api.nvim_create_autocmd('FileType', {
     })
   end,
 })
-
--- 2. Custom command: :DiffBranch <branch>
-vim.api.nvim_create_user_command('DiffBranch', function(opts)
-  local branch = opts.args
-  if branch == '' then
-    return
-  end
-
-  vim.cmd('Git difftool --name-status ' .. branch)
-  vim.cmd 'copen'
-  vim.b.diff_target_branch = branch
-end, { nargs = 1 })
 
 -- vim.api.nvim_create_autocmd('OptionSet', {
 --   pattern = 'diff',
