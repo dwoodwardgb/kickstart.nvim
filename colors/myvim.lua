@@ -38,6 +38,9 @@ local c = light and {
   grey      = '#808080',
   cursorline = '#eaf2fc', -- faint blue wash for the current row
   visual     = '#add6ff', -- stronger blue for selections, as in VSCode
+  search_fg  = '#000000',
+  cursearch    = '#ffa500', -- bright orange, so the current match pops against the yellow of other matches
+  cursearch_fg = '#000000',
 } or {
   fg        = '#ffffff',
   bg        = '#000000',
@@ -54,10 +57,13 @@ local c = light and {
   orange    = '#ffa500',
   blue      = '#80a0ff',
   green     = '#60ff60',
-  search    = '#ffff00',
+  search    = '#6b5300', -- dim gold, as in nvim's built-in dark 'default' scheme
   grey      = '#a0a0a0',
   cursorline = '#16212e', -- faint blue wash for the current row
   visual     = '#264f78', -- stronger blue for selections, as in VSCode
+  search_fg  = '#eef1f8', -- near-white, as in nvim's built-in dark 'default' scheme
+  cursearch    = '#fce094', -- bright yellow, so the current match pops against the dim gold of other matches
+  cursearch_fg = '#07080d',
 }
 
 -- Nearest of the basic 16 terminal colors for every hex used above, so that the
@@ -99,6 +105,10 @@ local term = {
   ['#ff0000'] = 9,
   ['#ffa500'] = 3,
   ['#ffff00'] = 11,
+  ['#6b5300'] = 3,  -- dim gold: search bg (dark)
+  ['#eef1f8'] = 15, -- near-white: search fg (dark)
+  ['#fce094'] = 11, -- bright pale yellow cursearch bg (dark)
+  ['#07080d'] = 0,  -- near-black cursearch fg (dark)
   -- diff washes, which only ever appear as backgrounds
   ['#e2f3e2'] = 2, ['#eef0f8'] = 4, ['#cfe6cf'] = 6, ['#f8e8e8'] = 1,
   ['#1e2e1e'] = 2, ['#22262e'] = 4, ['#2a402a'] = 6, ['#2e1e1e'] = 1,
@@ -155,9 +165,9 @@ hi('Conceal',         { fg = c.grey })
 hi('MatchParen',      { bg = light and '#00ffff' or '#008b8b' }) -- Cyan / DarkCyan
 hi('Visual',          { bg = c.visual })
 hi('VisualNOS',       { link = 'Visual' })
-hi('Search',          { fg = c.fg, bg = c.search })
-hi('CurSearch',       { link = 'Search' })
-hi('IncSearch',       { link = 'Search' })
+hi('Search',          { fg = c.search_fg, bg = c.search })
+hi('CurSearch',       { fg = c.cursearch_fg, bg = c.cursearch })
+hi('IncSearch',       { link = 'CurSearch' })
 hi('Substitute',      { link = 'Search' })
 hi('QuickFixLine',    { link = 'Search' })
 hi('Directory',       { fg = c.blue })

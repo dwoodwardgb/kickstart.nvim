@@ -121,12 +121,10 @@ end, { desc = 'Close all buffers except current' })
 -- NOTE: This won't work in all terminal emulators/tmux/etc. Try your own mapping or just use <C-\><C-n> to exit terminal mode
 vim.keymap.set('t', '<Esc><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode', silent = true })
 vim.keymap.set('t', '<leader><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode', silent = true })
-vim.keymap.set('t', '<leader><leader>', '<C-\\><C-n><C-o>', { desc = 'Exit terminal mode', silent = true })
 vim.api.nvim_create_autocmd('TermOpen', {
   group = vim.api.nvim_create_augroup('term-nav', { clear = true }),
   callback = function()
     vim.b.term_origin_win = vim.api.nvim_get_current_win()
-    vim.keymap.set('n', '<leader><leader>', '<C-\\><C-n><C-o>', { buffer = true, desc = 'Terminal-only normal mode map' })
   end,
 })
 
@@ -181,7 +179,12 @@ vim.keymap.set('n', '<leader>l', ':lua ToggleLocList()<CR>', { noremap = true, s
 -- TODO: limit jumplist to file directory and or support jumplist tree or advanced stuff
 
 -- ctrl+` for term toggle
-vim.keymap.set('n', '<C-`>', function()
+vim.keymap.set({ 'n', 't' }, '<C-`>', function()
+  -- Already in the terminal: "hide" it by jumping back
+  if vim.bo.buftype == 'terminal' then
+    vim.api.nvim_feedkeys(vim.keycode '<C-\\><C-n><C-o>', 'n', false)
+    return
+  end
   -- Focus existing terminal window if one is visible
   for _, win in ipairs(vim.api.nvim_list_wins()) do
     local buf = vim.api.nvim_win_get_buf(win)
@@ -360,6 +363,21 @@ vim.api.nvim_create_autocmd('ColorScheme', {
   end,
 })
 
+-- Alabaster's light background is off-white; force pure white.
+vim.api.nvim_create_autocmd('ColorScheme', {
+  pattern = 'alabaster',
+  callback = function()
+    if not vim.o.termguicolors or vim.o.background ~= 'light' then
+      return
+    end
+    for _, group in ipairs { 'Normal', 'NormalNC', 'SignColumn', 'EndOfBuffer', 'MsgArea' } do
+      local hl = vim.api.nvim_get_hl(0, { name = group, link = false })
+      hl.bg = 0xffffff
+      vim.api.nvim_set_hl(0, group, hl)
+    end
+  end,
+})
+
 -- Colorschemes whose CursorLine we tint ourselves. Real themes pick their own
 -- CursorLine background, so only the plain builtins get our derived tint.
 local cursorline_tint_schemes = {
@@ -461,14 +479,46 @@ require('lazy').setup({
     'f-person/auto-dark-mode.nvim',
     lazy = false,
     config = function()
+      -- Remember the last colorscheme picked for each mode (dark/light), so a
+      -- manual :colorscheme / picker choice survives restarts. Stored per mode
+      -- because auto-dark-mode re-applies a scheme at startup.
+      local state_file = vim.fn.stdpath 'state' .. '/colorscheme.json'
+      local defaults = { dark = 'lunaperche', light = 'myvim' }
+      local function read_state()
+        local ok, decoded = pcall(function()
+          return vim.json.decode(table.concat(vim.fn.readfile(state_file), '\n'))
+        end)
+        return vim.tbl_extend('force', defaults, ok and decoded or {})
+      end
+      local applying -- mode being restored; don't re-save it under a different background
+      local function apply(mode)
+        applying = true
+        local ok = pcall(vim.cmd.colorscheme, read_state()[mode])
+        if not ok then
+          vim.cmd.colorscheme(defaults[mode])
+        end
+        applying = false
+      end
+      vim.api.nvim_create_autocmd('ColorScheme', {
+        group = vim.api.nvim_create_augroup('persist-colorscheme', { clear = true }),
+        callback = function(args)
+          if applying then
+            return
+          end
+          local state = read_state()
+          state[vim.o.background] = args.match
+          vim.fn.writefile({ vim.json.encode(state) }, state_file)
+        end,
+      })
+
       local auto_dark_mode = require 'auto-dark-mode'
       auto_dark_mode.setup {
         update_interval = 8000,
         set_dark_mode = function()
-          vim.cmd.colorscheme 'myvim'
+          apply 'dark'
         end,
         set_light_mode = function()
-          vim.cmd.colorscheme 'myvim'
+          apply 'light'
         end,
       }
     end,
@@ -978,7 +1028,7 @@ require('lazy').setup({
             end, { desc = '[T]oggle Inlay [H]ints' })
           end
 
-          if client and (client.name == 'ts_ls' or client.name == 'vtsls' or client.name == 'tsc') then
+          if client and (client.name == 'ts_ls' or client.name == 'vtsls' or client.name == 'tsc' or client.name == 'denols') then
             vim.o.makeprg = './node_modules/.bin/tsc --pretty false --noEmit'
             vim.opt.errorformat = '%f(%l\\,%c): %t%*[^:]:%m'
           end
@@ -1114,6 +1164,7 @@ require('lazy').setup({
       -- (lspconfig config name 'tsc'; 'tsgo' is deprecated there); older
       -- projects use vtsls. If a TS 7 project's native binary can't be found we
       -- fall back to vtsls rather than leaving a dead client.
+      -- Anything under a deno.json/deno.jsonc uses denols instead of either.
       local ts_root_markers = { 'tsconfig.json', 'jsconfig.json', 'package.json', '.git' }
 
       local function ts_root(bufnr)
@@ -1203,6 +1254,11 @@ require('lazy').setup({
         return nil
       end
 
+      local function deno_root(bufnr)
+        local fname = vim.api.nvim_buf_get_name(bufnr)
+        return vim.fs.root(fname ~= '' and fname or bufnr, { 'deno.json', 'deno.jsonc' })
+      end
+
       -- Single source of truth: the native server only when TS >= 7 AND its
       -- binary resolves; otherwise vtsls.
       local function ts_server_for(root)
@@ -1215,7 +1271,7 @@ require('lazy').setup({
       vim.lsp.config('vtsls', {
         root_dir = function(bufnr, on_dir)
           local root = ts_root(bufnr)
-          if root and ts_server_for(root) == 'vtsls' then
+          if root and not deno_root(bufnr) and ts_server_for(root) == 'vtsls' then
             on_dir(root)
           end
         end,
@@ -1257,10 +1313,22 @@ require('lazy').setup({
         filetypes = { 'javascript', 'javascriptreact', 'typescript', 'typescriptreact' },
         root_dir = function(bufnr, on_dir)
           local root = ts_root(bufnr)
-          if root and ts_server_for(root) == 'tsc' then
+          if root and not deno_root(bufnr) and ts_server_for(root) == 'tsc' then
             on_dir(root)
           end
         end,
+      })
+
+      vim.lsp.config('denols', {
+        cmd = { 'deno', 'lsp' },
+        filetypes = { 'javascript', 'javascriptreact', 'typescript', 'typescriptreact' },
+        root_dir = function(bufnr, on_dir)
+          local root = deno_root(bufnr)
+          if root then
+            on_dir(root)
+          end
+        end,
+        settings = { deno = { enable = true, lint = true } },
       })
       -- Typescript --------------------------
 
@@ -1304,6 +1372,7 @@ require('lazy').setup({
         'lua_ls',
         'vtsls',
         'tsc',
+        'denols',
         'gopls',
         -- 'jdtls',
         'solargraph',
@@ -1437,37 +1506,49 @@ require('lazy').setup({
         desc = '[F]ormat buffer',
       },
     },
-    opts = {
-      notify_on_error = false,
-      format_on_save = function(bufnr)
-        -- Disable "format_on_save lsp_fallback" for languages that don't
-        -- have a well standardized coding style. You can add additional
-        -- languages here or re-enable it for the disabled ones.
-        local disable_filetypes = { c = true, cpp = true }
-        if disable_filetypes[vim.bo[bufnr].filetype] or vim.g.disable_autoformat or vim.b[bufnr].disable_autoformat then
-          return nil
-        else
-          return {
-            timeout_ms = 10000,
-            lsp_format = 'fallback',
-          }
+    opts = function()
+      -- Deno projects (deno.json/deno.jsonc) use `deno fmt`; no prettier needed.
+      local function prettier_or_deno(bufnr)
+        local fname = vim.api.nvim_buf_get_name(bufnr)
+        if vim.fs.root(fname ~= '' and fname or bufnr, { 'deno.json', 'deno.jsonc' }) then
+          return { 'deno_fmt' }
         end
-      end,
-      formatters_by_ft = {
-        lua = { 'stylua' },
-        javascript = { 'prettier' },
-        typescript = { 'prettier' },
-        typescriptreact = { 'prettier' },
-        html = { 'prettier' },
-        freemarker = { 'prettier' },
-        json = { 'prettier' },
-        jsonc = { 'prettier' },
-        css = { 'prettier' },
-        scss = { 'prettier' },
-        astro = { 'prettier' },
-        nim = { 'nimpretty' },
-      },
-    },
+        return { 'prettier' }
+      end
+
+      return {
+        notify_on_error = false,
+        format_on_save = function(bufnr)
+          -- Disable "format_on_save lsp_fallback" for languages that don't
+          -- have a well standardized coding style. You can add additional
+          -- languages here or re-enable it for the disabled ones.
+          local disable_filetypes = { c = true, cpp = true }
+          if disable_filetypes[vim.bo[bufnr].filetype] or vim.g.disable_autoformat or vim.b[bufnr].disable_autoformat then
+            return nil
+          else
+            return {
+              timeout_ms = 10000,
+              lsp_format = 'fallback',
+            }
+          end
+        end,
+        formatters_by_ft = {
+          lua = { 'stylua' },
+          javascript = prettier_or_deno,
+          javascriptreact = prettier_or_deno,
+          typescript = prettier_or_deno,
+          typescriptreact = prettier_or_deno,
+          html = { 'prettier' },
+          freemarker = { 'prettier' },
+          json = { 'prettier' },
+          jsonc = { 'prettier' },
+          css = { 'prettier' },
+          scss = { 'prettier' },
+          astro = { 'prettier' },
+          nim = { 'nimpretty' },
+        },
+      }
+    end,
   },
 
   -- Highlight todo, notes, etc in comments
@@ -1476,16 +1557,23 @@ require('lazy').setup({
     dependencies = { 'nvim-lua/plenary.nvim' },
     opts = {
       signs = false,
-
-      -- Optional: point keywords at semantic names (defaults are usually fine)
+      highlight = { before = 'fg' }, -- Also color the comment leader (// or #) before the keyword
+      merge_keywords = false,
       keywords = {
         TODO = { color = 'warning' },
-        WARN = { color = 'warning' },
-        NOTE = { color = 'info' }, -- INFO: is an alt of NOTE
+        FIX = { color = 'error', alt = { 'FIXME', 'BUG', 'FIXIT', 'ISSUE' } },
+        HACK = { color = 'error' },
+        WARN = { color = 'error', alt = { 'WARNING', 'XXX' } },
+        PERF = { color = 'info', alt = { 'OPTIM', 'PERFORMANCE', 'OPTIMIZE' } },
+        NOTE = { color = 'info', alt = { 'INFO' } },
+        TEST = { color = 'info', alt = { 'TESTING', 'PASSED', 'FAILED' } },
       },
-
-      -- Named colors used by keywords' `color` field.
-      -- Order matters: first hl group that yields a usable fg wins, else next, else hex.
+      -- TODO: HI
+      -- NOTE: HI
+      -- WARN: HI
+      -- FIX:  HI
+      -- HACK: HI
+      -- TEST: HI
       colors = {
         error = {
           'DiagnosticError',
@@ -1500,6 +1588,7 @@ require('lazy').setup({
           '#FBBF24',
         },
         info = {
+          'Comment',
           -- 'DiagnosticInfo',
           'Title', -- often distinct in schemes that weak DiagnosticInfo
           '#2563EB',
