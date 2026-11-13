@@ -1,3 +1,3 @@
-vim.wo.wrap = true
-vim.wo.foldmethod = 'marker'
-vim.wo.linebreak = true
+vim.opt_local.wrap = true
+vim.opt_local.foldmethod = 'marker'
+vim.opt_local.linebreak = true

@@ -35,7 +35,7 @@ vim.schedule(function()
   vim.o.clipboard = 'unnamedplus'
 end)
 
-vim.g.have_nerd_font = false
+vim.g.have_nerd_font = true
 
 vim.filetype.add {
   extension = {
@@ -123,8 +123,24 @@ vim.keymap.set('t', '<Esc><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode', 
 vim.keymap.set('t', '<leader><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode', silent = true })
 vim.api.nvim_create_autocmd('TermOpen', {
   group = vim.api.nvim_create_augroup('term-nav', { clear = true }),
-  callback = function()
+  callback = function(args)
     vim.b.term_origin_win = vim.api.nvim_get_current_win()
+    -- Terminal buffers stream output constantly; strip anything that re-runs per
+    -- line/redraw. Window options can leak in from the file previously shown in
+    -- this window (e.g. treesitter foldexpr), so reset them explicitly.
+    vim.opt_local.foldmethod = 'manual'
+    vim.opt_local.foldexpr = '0'
+    vim.opt_local.foldenable = false
+    vim.opt_local.number = false
+    vim.opt_local.relativenumber = false
+    vim.opt_local.cursorline = false
+    vim.opt_local.list = false
+    vim.opt_local.signcolumn = 'no'
+    vim.opt_local.spell = false
+    pcall(vim.treesitter.stop, args.buf)
+    -- Output scrolls the window constantly; don't let treesitter-context,
+    -- matchparen, blink etc. react to every scroll/cursor move in here.
+    vim.opt_local.eventignorewin = 'WinScrolled,CursorMoved,CursorMovedI,TextChangedT'
   end,
 })
 
@@ -538,6 +554,14 @@ require('lazy').setup({
       }
     end,
   },
+  { 'dchinmay2/alabaster.nvim' },
+  { 'oskarnurm/koda.nvim' },
+  { 'vim-scripts/silent.vim' },
+  {
+    'nickkadutskyi/jb.nvim',
+    opts = { disable_hl_args = { italic = true } },
+  },
+  { 'ThorstenRhau/token' },
   { 'NMAC427/guess-indent.nvim' },
   { -- Adds git related signs to the gutter, as well as utilities for managing changes
     'lewis6991/gitsigns.nvim',
@@ -1083,70 +1107,6 @@ require('lazy').setup({
         },
       })
 
-      -- JAVA -----------------------------------------------------------------
-      local function get_jdtls_cache_dir()
-        return vim.fn.stdpath 'cache' .. '/jdtls'
-      end
-      local function get_jdtls_workspace_dir()
-        return get_jdtls_cache_dir() .. '/workspace'
-      end
-      local function get_jdtls_jvm_args()
-        local env = os.getenv 'JDTLS_JVM_ARGS'
-        local args = {}
-        for a in string.gmatch((env or ''), '%S+') do
-          local arg = string.format('--jvm-arg=%s', a)
-          table.insert(args, arg)
-        end
-        return unpack(args)
-      end
-      local root_markers1 = {
-        -- Multi-module projects
-        'mvnw', -- Maven
-        'gradlew', -- Gradle
-        'settings.gradle', -- Gradle
-        'settings.gradle.kts', -- Gradle
-        -- Use git directory as last resort for multi-module maven projects
-        -- In multi-module maven projects it is not really possible to determine what is the parent directory
-        -- and what is submodule directory. And jdtls does not break if the parent directory is at higher level than
-        -- actual parent pom.xml so propagating all the way to root git directory is fine
-        '.git',
-      }
-      local root_markers2 = {
-        -- Single-module projects
-        'build.xml', -- Ant
-        'pom.xml', -- Maven
-        'build.gradle', -- Gradle
-        'build.gradle.kts', -- Gradle
-      }
-      vim.lsp.config('jdtls', {
-        ---@param dispatchers? vim.lsp.rpc.Dispatchers
-        ---@param config vim.lsp.ClientConfig
-        cmd = function(dispatchers, config)
-          local workspace_dir = get_jdtls_workspace_dir()
-          local data_dir = workspace_dir
-
-          if config.root_dir then
-            data_dir = data_dir .. '/' .. vim.fn.fnamemodify(config.root_dir, ':p:h:t')
-          end
-
-          local config_cmd = {
-            'jdtls',
-            '-data',
-            data_dir,
-            get_jdtls_jvm_args(),
-          }
-
-          return vim.lsp.rpc.start(config_cmd, dispatchers, {
-            cwd = config.cmd_cwd,
-            env = config.cmd_env,
-            detached = config.detached,
-          })
-        end,
-        filetypes = { 'java' },
-        root_markers = vim.fn.has 'nvim-0.11.3' == 1 and { root_markers1, root_markers2 } or vim.list_extend(root_markers1, root_markers2),
-        init_options = {},
-      })
-      -- JAVA -----------------------------------------------------------------
       vim.lsp.config('solargraph', {
         cmd = { 'solargraph', 'stdio' },
         settings = {
@@ -1374,7 +1334,8 @@ require('lazy').setup({
         'tsc',
         'denols',
         'gopls',
-        -- 'jdtls',
+        'jdtls',
+        'asm_lsp',
         'solargraph',
         'astro_ls',
       }
@@ -1712,6 +1673,7 @@ require('lazy').setup({
         'javadoc',
         'groovy',
         'graphql',
+        'asm',
       }
       treesitter.install(ensure_installed)
     end,

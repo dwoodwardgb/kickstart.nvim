@@ -159,7 +159,7 @@ local function apply()
     SpellLocal   = { sp = s.info, undercurl = true },
 
     -- Legacy syntax groups
-    Comment      = { fg = s.comment, italic = true },
+    Comment      = { fg = s.comment },
     Constant     = { fg = s.constant },
     String       = { fg = s.string },
     Character    = { fg = s.string },
@@ -253,13 +253,13 @@ local function apply()
     -- Markup (markdown, etc.)
     ["@markup.heading"]       = { fg = s.accent_0, bold = true },
     ["@markup.strong"]        = { bold = true },
-    ["@markup.italic"]        = { italic = true },
+    ["@markup.italic"]        = {},
     ["@markup.strikethrough"] = { strikethrough = true },
     ["@markup.link"]          = { fg = s.fg_link, underline = true },
     ["@markup.link.url"]      = { fg = s.fg_link, underline = true },
     ["@markup.raw"]           = { fg = s.string },
     ["@markup.list"]          = { fg = s.accent_1 },
-    ["@markup.quote"]         = { fg = s.docstring, italic = true },
+    ["@markup.quote"]         = { fg = s.docstring },
     ["@diff.plus"]            = { fg = p.fg_added },
     ["@diff.minus"]           = { fg = p.fg_removed },
     ["@diff.delta"]           = { fg = p.fg_changed },
